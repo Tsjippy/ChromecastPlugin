@@ -1,4 +1,3 @@
-# Basic Python Plugin Example
 #
 # Author: Tsjippy
 #

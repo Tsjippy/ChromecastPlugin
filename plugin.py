@@ -2,24 +2,27 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.0.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://www.google.com/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.0.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
-        <h2>Plugin Title</h2><br/>
-        Overview...
+        <h2>Chromecast</h2><br/>
+        This plugin add devices to Domoticz to control your chromecast, and to retrieve its current app, title, playing mode.<br/><br/>
         <h3>Features</h3>
         <ul style="list-style-type:square">
-            <li>Feature one...</li>
-            <li>Feature two...</li>
+            <li>Pause, Play or stop the app on the chromecast</li>
+            <li>See current connected app, title and playing mode.</li>
         </ul>
         <h3>Devices</h3>
         <ul style="list-style-type:square">
-            <li>Device Type - What it does...</li>
+            <li>Switch device - Playing mode</li>
+            <li>Switch device - Connected app</li>
+            <li>Volume device - See or adjust the current volume</li>
+            <li>Text device - See current title</li>
         </ul>
         <h3>Configuration</h3>
-        Configuration options...
+        Just add your chromecast name
     </description>
     <params>
-        <param field="Mode1" label="Comma seperated Chromecast name(s). " width="200px" required="true"/>
+        <param field="Mode1" label="Chromecast name " width="200px" required="true"/>
         <param field="Mode6" label="Debug" width="100px">
             <options>
                 <option label="True" value="Debug"/>
@@ -34,6 +37,8 @@
 #                      Imports                                              #
 #############################################################################
 import sys
+import threading
+
 try:
     import Domoticz
     debug = False 
@@ -42,6 +47,7 @@ except ImportError:
     debug = True
 
 import pychromecast
+from pychromecast.controllers.youtube import YouTubeController
 
 #############################################################################
 #                      Domoticz call back functions                         #
@@ -56,13 +62,13 @@ class StatusListener:
     def new_cast_status(self, status):
         if self.Appnaam != status.display_name:
             self.Appnaam = status.display_name
-            Domoticz.Log("De app is veranderd naar "+status.display_name)
+            Domoticz.Log("The app changed to "+status.display_name)
             UpdateDevice(4,0,str(self.Appnaam))
 
         if self.Volume != status.volume_level:
             self.Volume = status.volume_level
             Volume = int(self.Volume*100)
-            Domoticz.Log("Updated Volume to "+str(Volume))
+            Domoticz.Log("Updated volume to "+str(Volume))
             UpdateDevice(2,Volume,str(Volume))
 
             
@@ -85,11 +91,11 @@ class StatusMediaListener:
             elif(self.Mode) == "STOPPED":
                 self.Mode="Stop"
 
-            Domoticz.Log("De afspeelmodus is veranderd naar "+status.player_state)
+            Domoticz.Log("The playing mode has changed to "+self.Mode)
             UpdateDevice(1,0,self.Mode)
         if self.Title != status.title:
             self.Title = status.title
-            Domoticz.Log("De titel is veranderd naar "+status.title)
+            Domoticz.Log("The title is changed to  "+self.Title)
             UpdateDevice(3,0,self.Title)
 
 class BasePlugin:
@@ -101,13 +107,13 @@ class BasePlugin:
     def onStart(self):
         # Check if images are in database
         Domoticz.Status("Checking if images are loaded")
-        import pychromecast
         if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
         
         # Check if devices need to be created
         createDevices()
 
-        DumpConfigToLog()
+        if Parameters["Mode6"]=="Debug":
+            DumpConfigToLog()
 
         Domoticz.Heartbeat(30)
 
@@ -117,7 +123,9 @@ class BasePlugin:
         
         if self.chromecast != "":
             Domoticz.Status("Registering listeners")
-            startListening(self.chromecast)
+
+            thread = Thread(target = startListening, args = (self.chromecast, ))
+            thread.start()
 
         return True
 
@@ -126,6 +134,30 @@ class BasePlugin:
             self.chromecast=ConnectChromeCast()
 
         Domoticz.Log("onHeartbeat called")
+
+    def onCommand(self, Unit, Command, Level, Hue):
+        Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
+        if self.chromecast == "":
+            Domoticz.Error("No chromecast is connected!")
+        else:
+            if Unit == 1:
+                if Level == 10:
+                    Domoticz.Log("Start playing on chromecast")
+                    self.chromecast.media_controller.play()
+                elif Level == 20:
+                    Domoticz.Log("Pausing chromecast")
+                    self.chromecast.media_controller.pause()
+                elif Level == 30:
+                    Domoticz.Log("Killing "+self.chromecast.app_display_name)
+                    self.chromecast.quit_app()
+            elif Unit == 2:
+                vl = float(Level)/100
+                self.chromecast.set_volume(vl)
+            elif Unit == 4:
+                if Level == 30:
+                    Domoticz.Log("Starting Youtube on chromecast")
+                    yt = YouTubeController()
+                    self.chromecast.register_handler(yt)
 
 global _plugin
 _plugin = BasePlugin()
@@ -137,6 +169,10 @@ def onStart():
 def onHeartbeat():
     global _plugin
     _plugin.onHeartbeat()
+
+def onCommand(Unit, Command, Level, Hue):
+    global _plugin
+    _plugin.onCommand(Unit, Command, Level, Hue)
 
     # Generic helper functions
 def DumpConfigToLog():
@@ -162,37 +198,25 @@ def senderror(e):
     return
 
 def createDevices():
-    # Are there any devices?
-    ###if len(Devices) != 0:
-        # Could be the user deleted some devices, so do nothing
-        ###return
-
-    # Give the devices a unique unit number. This makes updating them more easy.
-    # UpdateDevice() checks if the device exists before trying to update it.
-
-    # Add the barometer device
     if 1 not in Devices:
         OPTIONS1 =  {   "LevelActions"  : "|||||", 
-                        "LevelNames"    : "Off|Playing|Stop|Paused",
+                        "LevelNames"    : "Off|Play|Pause|Stop",
                         "LevelOffHidden": "true",
                         "SelectorStyle" : "0"
                     }
         Domoticz.Log("Created 'Status' device")
-        #Domoticz.Device(Name="Status", Unit=1, Type=244, Subtype=73, Switchtype=17, Used=1).Create()
-        Domoticz.Device(Name="Control", Unit=1, TypeName="Selector Switch", Switchtype=18, Image=2, Options=OPTIONS1, Used=1).Create()
+        Domoticz.Device(Name="Control", Unit=1, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS1, Used=1).Create()
         UpdateImage(1, 'ChromecastLogo')
-
-    if  1 in Devices: UpdateImage(1, 'ChromecastLogo')
 
     if 2 not in Devices:
         Domoticz.Log("Created 'Volume' device")
-        Domoticz.Device(Name="Volume", Unit=2, Type=244, Subtype=73, Switchtype=7, Image=8, Used=1).Create()
-        UpdateImage(1, 'ChromecastLogo')
+        Domoticz.Device(Name="Volume", Unit=2, Type=244, Subtype=73, Switchtype=7, Used=1).Create()
+        UpdateImage(2, 'ChromecastLogo')
 
     if 3 not in Devices:
         Domoticz.Log("Created 'Title' device")
         Domoticz.Device(Name="Title", Unit=3, Type=243, Subtype=19, Used=1).Create()
-        UpdateImage(1, 'ChromecastLogo')
+        UpdateImage(3, 'ChromecastLogo')
 
     if 4 not in Devices:
         OPTIONS4 =  {   "LevelActions"  : "|||||", 
@@ -216,11 +240,10 @@ def UpdateImage(Unit, Logo):
     return
 
 def ConnectChromeCast():
-    #global debug
-    #if debug==True:
-    #    Domoticz.Status("Debug is tru")
-    #    Parameters = {}
-    #    Parameters["Mode1"]="Home mini Harmsen"
+    try:
+        ChromecastName = Parameters["Mode1"]
+    except:
+        ChromecastName="Test Device"
 
     Domoticz.Status("Checking for available chromecasts")
     try:
@@ -229,13 +252,13 @@ def ConnectChromeCast():
     except Exception as e: 
         senderror(e)
 
-    Domoticz.Status("Trying to connect to "+Parameters["Mode1"])
+    Domoticz.Status("Trying to connect to "+ChromecastName)
     try:
-        chromecast = next(cc for cc in chromecasts if cc.device.friendly_name == Parameters["Mode1"])
-        Domoticz.Status("Connected to " + Parameters["Mode1"])
+        chromecast = next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)
+        Domoticz.Status("Connected to " + ChromecastName)
     except StopIteration:
         chromecast = ""
-        Domoticz.Error("Could not connect to "+Parameters["Mode1"])
+        Domoticz.Error("Could not connect to "+ChromecastName)
     except Exception as e: 
         chromecast = ""
         senderror(e)
@@ -249,8 +272,8 @@ def startListening(chromecast):
 
     listenerMedia = StatusMediaListener(chromecast.name, chromecast)
     chromecast.media_controller.register_status_listener(listenerMedia)
+
     Domoticz.Log("Done registering listeners")
-    return chromecast
 
 # Update Device into database
 def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):

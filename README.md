@@ -4,7 +4,7 @@ Chromecast plugin for Domoticz, based on PyChromecast
 
 Short summary
 -------------
-This plugin add devices to Domoticz to control you chromecast, and to retrieve its current app, title, playing mode.
+This plugin add devices to Domoticz to control your chromecast, and to retrieve its current app, title, playing mode.
 
 Installation and setup
 ----------------------

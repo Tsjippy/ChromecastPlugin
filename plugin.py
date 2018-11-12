@@ -133,8 +133,6 @@ class BasePlugin:
         if self.chromecast == "":
             self.chromecast=ConnectChromeCast()
 
-        Domoticz.Log("onHeartbeat called")
-
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
         if self.chromecast == "":
@@ -240,6 +238,7 @@ def UpdateImage(Unit, Logo):
     return
 
 def ConnectChromeCast():
+    chromecast = ""
     try:
         ChromecastName = Parameters["Mode1"]
     except:
@@ -248,20 +247,22 @@ def ConnectChromeCast():
     Domoticz.Status("Checking for available chromecasts")
     try:
         chromecasts = pychromecast.get_chromecasts()
-        Domoticz.Log(str(chromecasts))
+        if len(chromecasts) != 0:
+            Domoticz.Log("Found these chromecasts: "+str(chromecasts))
+        else:
+            Domoticz.Status("No casting devices found, make sure they are online.")
     except Exception as e: 
         senderror(e)
 
-    Domoticz.Status("Trying to connect to "+ChromecastName)
-    try:
-        chromecast = next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)
-        Domoticz.Status("Connected to " + ChromecastName)
-    except StopIteration:
-        chromecast = ""
-        Domoticz.Error("Could not connect to "+ChromecastName)
-    except Exception as e: 
-        chromecast = ""
-        senderror(e)
+    if len(chromecasts) != 0:
+        Domoticz.Status("Trying to connect to "+ChromecastName)
+        try:
+            chromecast = next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)
+            Domoticz.Status("Connected to " + ChromecastName)
+        except StopIteration:
+            Domoticz.Error("Could not connect to "+ChromecastName)
+        except Exception as e: 
+            senderror(e)
 
     return chromecast
 

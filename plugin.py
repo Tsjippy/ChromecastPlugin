@@ -1,6 +1,6 @@
 # Basic Python Plugin Example
 #
-# Author: GizMoCuz
+# Author: Tsjippy
 #
 """
 <plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.0.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://www.google.com/">

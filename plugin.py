@@ -138,21 +138,21 @@ class BasePlugin:
             if Unit == 1:
                 if Level == 10:
                     Domoticz.Log("Start playing on chromecast")
-                    self.chromecast.media_controller.play()
+                    self.chromecasts[0][1].media_controller.play()
                 elif Level == 20:
                     Domoticz.Log("Pausing chromecast")
-                    self.chromecast.media_controller.pause()
+                    self.chromecasts[0][1].media_controller.pause()
                 elif Level == 30:
-                    Domoticz.Log("Killing "+self.chromecast.app_display_name)
-                    self.chromecast.quit_app()
+                    Domoticz.Log("Killing "+self.chromecasts[0][1].app_display_name)
+                    self.chromecasts[0][1].quit_app()
             elif Unit == 2:
                 vl = float(Level)/100
-                self.chromecast.set_volume(vl)
+                self.chromecasts[0][1].set_volume(vl)
             elif Unit == 4:
                 if Level == 30:
                     Domoticz.Log("Starting Youtube on chromecast")
                     yt = YouTubeController()
-                    self.chromecast.register_handler(yt)
+                    self.chromecasts[0][1].register_handler(yt)
 
     def CheckForChromecast(self):
         q = queue.Queue()

@@ -136,7 +136,11 @@ class BasePlugin:
 
     def onHeartbeat(self):
         if self.chromecast == "":
-            self.chromecast=ConnectChromeCast()
+            q = Queue()
+            p = Process(target=ConnectChromeCast, args=(q,))
+            p.start()
+            self.chromecast=(q.get())
+            p.join()
 
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))

@@ -38,6 +38,7 @@
 #############################################################################
 import sys
 import threading
+from multiprocessing import Process, Queue
 
 try:
     import Domoticz
@@ -119,7 +120,11 @@ class BasePlugin:
 
         Domoticz.Status("Starting up")
 
-        self.chromecast=ConnectChromeCast()
+        q = Queue()
+        p = Process(target=ConnectChromeCast, args=(q,))
+        p.start()
+        self.chromecast=(q.get())
+        p.join()
 
         if self.chromecast != "":
             Domoticz.Status("Registering listeners")
@@ -237,7 +242,7 @@ def UpdateImage(Unit, Logo):
             Devices[Unit].Update(nValue=Devices[Unit].nValue, sValue=str(Devices[Unit].sValue), Image=Images[Logo].ID)
     return
 
-def ConnectChromeCast():
+def ConnectChromeCast(q):
     chromecast = ""
     try:
         ChromecastName = Parameters["Mode1"]
@@ -264,7 +269,7 @@ def ConnectChromeCast():
         except Exception as e:
             senderror(e)
 
-    return chromecast
+    q.put(chromecast)
 
 def startListening(chromecast):
     Domoticz.Log("Registering listeners")

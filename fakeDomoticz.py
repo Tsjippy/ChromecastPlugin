@@ -10,6 +10,9 @@
 def Log(s):
     print(s)
 
+def Status(s):
+    print(s)
+
 def Error(s):
     print(s)
 

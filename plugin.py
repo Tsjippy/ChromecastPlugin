@@ -207,35 +207,39 @@ def senderror(e):
     return
 
 def createDevices():
-    if 1 not in Devices:
-        OPTIONS1 =  {   "LevelActions"  : "|||||",
-                        "LevelNames"    : "Off|Play|Pause|Stop",
-                        "LevelOffHidden": "true",
-                        "SelectorStyle" : "0"
-                    }
-        Domoticz.Log("Created 'Status' device")
-        Domoticz.Device(Name="Control", Unit=1, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS1, Used=1).Create()
-        UpdateImage(1, 'ChromecastLogo')
+    if Settings["AcceptNewHardware"] != "1":
+        if len(Devices) < 4:
+            Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices.")
+    else:
+        if 1 not in Devices:
+            OPTIONS1 =  {   "LevelActions"  : "|||||",
+                            "LevelNames"    : "Off|Play|Pause|Stop",
+                            "LevelOffHidden": "true",
+                            "SelectorStyle" : "0"
+                        }
+            Domoticz.Log("Created 'Status' device")
+            Domoticz.Device(Name="Control", Unit=1, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS1, Used=1).Create()
+            UpdateImage(1, 'ChromecastLogo')
 
-    if 2 not in Devices:
-        Domoticz.Log("Created 'Volume' device")
-        Domoticz.Device(Name="Volume", Unit=2, Type=244, Subtype=73, Switchtype=7, Used=1).Create()
-        UpdateImage(2, 'ChromecastLogo')
+        if 2 not in Devices:
+            Domoticz.Log("Created 'Volume' device")
+            Domoticz.Device(Name="Volume", Unit=2, Type=244, Subtype=73, Switchtype=7, Used=1).Create()
+            UpdateImage(2, 'ChromecastLogo')
 
-    if 3 not in Devices:
-        Domoticz.Log("Created 'Title' device")
-        Domoticz.Device(Name="Title", Unit=3, Type=243, Subtype=19, Used=1).Create()
-        UpdateImage(3, 'ChromecastLogo')
+        if 3 not in Devices:
+            Domoticz.Log("Created 'Title' device")
+            Domoticz.Device(Name="Title", Unit=3, Type=243, Subtype=19, Used=1).Create()
+            UpdateImage(3, 'ChromecastLogo')
 
-    if 4 not in Devices:
-        OPTIONS4 =  {   "LevelActions"  : "|||||",
-                        "LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
-                        "LevelOffHidden": "true",
-                        "SelectorStyle" : "0"
-                    }
-        Domoticz.Log("Created 'App' device")
-        Domoticz.Device(Name="App name", Unit=4, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS4, Used=1).Create()
-        UpdateImage(4, 'ChromecastLogo')
+        if 4 not in Devices:
+            OPTIONS4 =  {   "LevelActions"  : "|||||",
+                            "LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
+                            "LevelOffHidden": "true",
+                            "SelectorStyle" : "0"
+                        }
+            Domoticz.Log("Created 'App' device")
+            Domoticz.Device(Name="App name", Unit=4, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS4, Used=1).Create()
+            UpdateImage(4, 'ChromecastLogo')
 
     Domoticz.Log("Devices check done")
     return

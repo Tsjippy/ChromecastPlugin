@@ -119,29 +119,14 @@ class BasePlugin:
         Domoticz.Heartbeat(30)
 
         Domoticz.Status("Starting up")
-
-        q = queue.Queue()
-        p = threading.Thread(target=ConnectChromeCast, args=(q,))
-        p.start()
-        self.chromecast=(q.get())
-        p.join()
-
-        if self.chromecast != "":
-            Domoticz.Status("Registering listeners")
-
-            thread = Thread(target = startListening, args = (self.chromecast, ))
-            thread.start()
+        self.CheckForChromecast()
 
         return True
 
     def onHeartbeat(self):
         if self.chromecast == "":
             Domoticz.Log("Re-checking for chromecasts")
-            q = queue.Queue()
-            p = threading.Thread(target=ConnectChromeCast, args=(q,))
-            p.start()
-            self.chromecast=(q.get())
-            p.join()
+            self.CheckForChromecast()
         else:
             pass
 
@@ -168,6 +153,20 @@ class BasePlugin:
                     Domoticz.Log("Starting Youtube on chromecast")
                     yt = YouTubeController()
                     self.chromecast.register_handler(yt)
+
+    def CheckForChromecast(self):
+        q = queue.Queue()
+        p = threading.Thread(target=ConnectChromeCast, args=(q,))
+        p.daemon = True
+        p.start()
+        self.chromecast=(q.get())
+        p.join()
+
+        if self.chromecast != "":
+            Domoticz.Status("Registering listeners")
+            thread = threading.Thread(target = startListening, args = (self.chromecast, ))
+            thread.daemon = True
+            thread.start()
 
 global _plugin
 _plugin = BasePlugin()

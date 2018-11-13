@@ -38,7 +38,7 @@
 #############################################################################
 import sys
 import threading
-from multiprocessing import Process, Queue
+import queue
 
 try:
     import Domoticz
@@ -120,8 +120,8 @@ class BasePlugin:
 
         Domoticz.Status("Starting up")
 
-        q = Queue()
-        p = Process(target=ConnectChromeCast, args=(q,))
+        q = queue.Queue()
+        p = threading.Thread(target=ConnectChromeCast, args=(q,))
         p.start()
         self.chromecast=(q.get())
         p.join()
@@ -136,11 +136,14 @@ class BasePlugin:
 
     def onHeartbeat(self):
         if self.chromecast == "":
-            q = Queue()
-            p = Process(target=ConnectChromeCast, args=(q,))
+            Domoticz.Log("Re-checking for chromecasts")
+            q = queue.Queue()
+            p = threading.Thread(target=ConnectChromeCast, args=(q,))
             p.start()
             self.chromecast=(q.get())
             p.join()
+        else:
+            pass
 
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
@@ -254,6 +257,7 @@ def ConnectChromeCast(q):
         ChromecastName="Test Device"
 
     Domoticz.Status("Checking for available chromecasts")
+    WriteToDomoticzLog("Status", "Checking for available chromecasts")
     try:
         chromecasts = pychromecast.get_chromecasts()
         if len(chromecasts) != 0:
@@ -275,6 +279,12 @@ def ConnectChromeCast(q):
 
     q.put(chromecast)
 
+def WriteToDomoticzLog(Type, Text):
+    Domoticz.Status("Received " + Text)
+    if Type== "Status":
+        Domoticz.Status(Text)
+
+
 def startListening(chromecast):
     Domoticz.Log("Registering listeners")
     listenerCast = StatusListener(chromecast.name, chromecast)
@@ -295,7 +305,11 @@ def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
     return
 
 if debug==True:
-    ConnectChromeCast()
+    q = queue.Queue()
+    p = threading.Thread(target=ConnectChromeCast, args=(q,))
+    p.start()
+    chromecast=(q.get())
+    p.join()
 
 
 

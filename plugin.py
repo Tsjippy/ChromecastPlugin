@@ -41,7 +41,7 @@ import threading
 
 try:
     import Domoticz
-    debug = False 
+    debug = False
 except ImportError:
     import fakeDomoticz as Domoticz
     debug = True
@@ -56,14 +56,14 @@ class StatusListener:
     def __init__(self, name, cast):
         self.name = name
         self.cast = cast
-        self.Appnaam=""
+        self.Appname=""
         self.Volume=0
 
     def new_cast_status(self, status):
-        if self.Appnaam != status.display_name:
-            self.Appnaam = status.display_name
+        if self.Appname != status.display_name:
+            self.Appname = status.display_name
             Domoticz.Log("The app changed to "+status.display_name)
-            UpdateDevice(4,0,str(self.Appnaam))
+            UpdateDevice(4,0,str(self.Appname))
 
         if self.Volume != status.volume_level:
             self.Volume = status.volume_level
@@ -71,7 +71,7 @@ class StatusListener:
             Domoticz.Log("Updated volume to "+str(Volume))
             UpdateDevice(2,Volume,str(Volume))
 
-            
+
 class StatusMediaListener:
     def __init__(self, name, cast):
         self.name = name
@@ -83,7 +83,7 @@ class StatusMediaListener:
         #Domoticz.Log("Mediastatus "+str(status))
         if self.Mode != status.player_state:
             self.Mode = status.player_state
-            
+
             if(self.Mode) == "PLAYING":
                 self.Mode="Play"
             elif(self.Mode) == "PAUSED":
@@ -108,7 +108,7 @@ class BasePlugin:
         # Check if images are in database
         Domoticz.Status("Checking if images are loaded")
         if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
-        
+
         # Check if devices need to be created
         createDevices()
 
@@ -120,7 +120,7 @@ class BasePlugin:
         Domoticz.Status("Starting up")
 
         self.chromecast=ConnectChromeCast()
-        
+
         if self.chromecast != "":
             Domoticz.Status("Registering listeners")
 
@@ -197,7 +197,7 @@ def senderror(e):
 
 def createDevices():
     if 1 not in Devices:
-        OPTIONS1 =  {   "LevelActions"  : "|||||", 
+        OPTIONS1 =  {   "LevelActions"  : "|||||",
                         "LevelNames"    : "Off|Play|Pause|Stop",
                         "LevelOffHidden": "true",
                         "SelectorStyle" : "0"
@@ -217,7 +217,7 @@ def createDevices():
         UpdateImage(3, 'ChromecastLogo')
 
     if 4 not in Devices:
-        OPTIONS4 =  {   "LevelActions"  : "|||||", 
+        OPTIONS4 =  {   "LevelActions"  : "|||||",
                         "LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
                         "LevelOffHidden": "true",
                         "SelectorStyle" : "0"
@@ -251,7 +251,7 @@ def ConnectChromeCast():
             Domoticz.Log("Found these chromecasts: "+str(chromecasts))
         else:
             Domoticz.Status("No casting devices found, make sure they are online.")
-    except Exception as e: 
+    except Exception as e:
         senderror(e)
 
     if len(chromecasts) != 0:
@@ -261,7 +261,7 @@ def ConnectChromeCast():
             Domoticz.Status("Connected to " + ChromecastName)
         except StopIteration:
             Domoticz.Error("Could not connect to "+ChromecastName)
-        except Exception as e: 
+        except Exception as e:
             senderror(e)
 
     return chromecast

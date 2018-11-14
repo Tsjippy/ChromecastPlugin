@@ -160,14 +160,14 @@ class BasePlugin:
         p.daemon = True
         p.start()
         self.chromecasts=(q.get())
-        p.join()
+        #p.join()
 
-        if type(self.chromecasts[0][1]) != type(''):
-            for ChromecastName in self.chromecasts:
-                Domoticz.Status("Registering listeners for "+ChromecastName[0])
-                thread = threading.Thread(target = startListening, args = (ChromecastName[1], ))
-                thread.daemon = True
-                thread.start()
+        for i, ChromecastName in enumerate(self.chromecasts):
+        	if type(ChromecastName[1]) != type(''):
+        		Domoticz.Status("Registering listeners for "+ChromecastName[0])
+        		ChromecastNames[i]=[ChromecastName[0],ChromecastName[1],threading.Thread(target = startListening, args = (ChromecastName[1], ))]
+				ChromecastNames[i][2].daemon = True
+        		ChromecastNames[i][2].start()
 
 global _plugin
 _plugin = BasePlugin()
@@ -279,7 +279,7 @@ def ConnectChromeCast(q):
                 ChromecastNames[i]=[ChromecastName,next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)]
                 Domoticz.Status("Connected to " + ChromecastName)
             except StopIteration:
-                Domoticz.Error("Could not connect to "+ChromecastName + ChromecastNames[i][1]=="")
+                Domoticz.Error("Could not connect to "+ChromecastName)
             except Exception as e:
                 senderror(e)
 

@@ -39,6 +39,7 @@
 import sys
 import threading
 import queue
+from multiprocessing import Process, Queue
 
 try:
     import Domoticz
@@ -140,6 +141,7 @@ class BasePlugin:
         for chromecastname in Parameters["Mode1"].split(","): 
             self.ConnectedChromecasts[chromecastname]=""
 
+        Domoticz.Status("Checking for available chromecasts")
         self.CheckForChromecast()
 
         return True
@@ -181,11 +183,16 @@ class BasePlugin:
                     self.chromecasts[0][1].register_handler(yt)
 
     def CheckForChromecast(self):
-        q = queue.Queue()
-        p = threading.Thread(target=ConnectChromeCast, args=(q,self.ConnectedChromecasts,))
-        p.daemon = True
+        #q = queue.Queue()
+        #p = threading.Thread(target=ConnectChromeCast, args=(q,self.ConnectedChromecasts,))
+        #p.daemon = True
+        #p.start()
+        #self.ConnectedChromecasts=(q.get())
+
+        q = Queue()
+        p = Process(target=ConnectChromeCast, args=(q,self.ConnectedChromecasts,))
         p.start()
-        self.ConnectedChromecasts=(q.get())
+        self.ConnectedChromecasts=q.get()
         #p.join()
 
 global _plugin
@@ -276,7 +283,6 @@ def ConnectChromeCast(q,ConnectedChromecasts):
     global _plugin
 
     #Check for available chromecasts
-    Domoticz.Status("Checking for available chromecasts")
     try:
         chromecasts = pychromecast.get_chromecasts()
         if len(chromecasts) != 0:
@@ -325,3 +331,7 @@ if debug==True:
     p.start()
     chromecast=(q.get())
     p.join()
+
+
+
+

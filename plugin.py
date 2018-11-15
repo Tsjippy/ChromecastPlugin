@@ -136,17 +136,18 @@ class BasePlugin:
         Domoticz.Heartbeat(30)
 
         Domoticz.Status("Starting up")
-        self.CheckForChromecast()
         self.ConnectedChromecasts={}
         for chromecastname in Parameters["Mode1"].split(","): 
-            ConnectedChromecasts[chromecastname]=""
+            self.ConnectedChromecasts[chromecastname]=""
+
+        self.CheckForChromecast()
 
         return True
 
     def onHeartbeat(self):
         Scan=False
-        for cc in ConnectedChromecasts:
-            if ConnectedChromecasts[cc]=="":
+        for cc in self.ConnectedChromecasts:
+            if self.ConnectedChromecasts[cc]=="":
                 Scan = True
             else:
                 pass
@@ -181,10 +182,10 @@ class BasePlugin:
 
     def CheckForChromecast(self):
         q = queue.Queue()
-        p = threading.Thread(target=ConnectChromeCast, args=(q,))
+        p = threading.Thread(target=ConnectChromeCast, args=(q,self.ConnectedChromecasts,))
         p.daemon = True
         p.start()
-        self.chromecasts=(q.get())
+        self.ConnectedChromecasts=(q.get())
         #p.join()
 
 global _plugin
@@ -271,13 +272,10 @@ def UpdateImage(Unit, Logo):
             Devices[Unit].Update(nValue=Devices[Unit].nValue, sValue=str(Devices[Unit].sValue), Image=Images[Logo].ID)
     return
 
-def ConnectChromeCast(q):
+def ConnectChromeCast(q,ConnectedChromecasts):
     global _plugin
-    try:
-        ChromecastNames = Parameters["Mode1"].split(",")
-    except:
-        ChromecastNames=["Test Device"]
 
+    #Check for available chromecasts
     Domoticz.Status("Checking for available chromecasts")
     try:
         chromecasts = pychromecast.get_chromecasts()
@@ -288,10 +286,11 @@ def ConnectChromeCast(q):
     except Exception as e:
         senderror(e)
 
+    #Check if there any non-connected chromecast available
     if len(chromecasts) != 0:
-        for i, ChromecastName in enumerate(ChromecastNames):
+        for i, ChromecastName in enumerate(ConnectedChromecasts):
             #Check if chrmecast is already connected
-            if self.ConnectedChromecasts[ChromecastName] == "":
+            if ConnectedChromecasts[ChromecastName] == "":
                 #Try to find the chromecast in the available chromecasts
                 try:
                     #Create a chromecast instance.
@@ -301,13 +300,13 @@ def ConnectChromeCast(q):
                 except Exception as e:
                     senderror(e)
 
-                self.ConnectedChromecasts[ChromecastName]=cc
+                ConnectedChromecasts[ChromecastName]=cc
                 Domoticz.Status("Connected to " + ChromecastName)
-                self.ConnectedChromecasts[ChromecastName].startListening()
+                ConnectedChromecasts[ChromecastName].startListening()
             else:
                 Domoticz.Log("Already connected to "+ChromecastName)
 
-    q.put(ChromecastNames)
+    q.put(ConnectedChromecasts)
 
 
 # Update Device into database
@@ -320,8 +319,9 @@ def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
     return
 
 if debug==True:
+    ConnectedChromecasts=["Test Device"]
     q = queue.Queue()
-    p = threading.Thread(target=ConnectChromeCast, args=(q,))
+    p = threading.Thread(target=ConnectChromeCast, args=(q,ConnectedChromecasts,))
     p.start()
     chromecast=(q.get())
     p.join()

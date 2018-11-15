@@ -99,6 +99,23 @@ class StatusMediaListener:
             Domoticz.Log("The title is changed to  "+self.Title)
             UpdateDevice(3,0,self.Title)
 
+class Chromecast:
+    def __init__(self, cast, _plugin):
+        self.name = cast.name
+        self.cast = cast
+        self.plugin = _plugin
+
+    def startListening(self):
+        Domoticz.Log("Registering listeners for "+self.name)
+        self.listenerCast = StatusListener(self.name, self.cast)
+        self.cast.register_status_listener(self.listenerCast)
+
+        self.listenerMedia = StatusMediaListener(self.name, self.cast)
+        self.cast.media_controller.register_status_listener(self.listenerMedia)
+
+        Domoticz.Log("Done registering listeners for "+self.name)
+
+
 class BasePlugin:
     enabled = False
     def __init__(self):
@@ -120,15 +137,23 @@ class BasePlugin:
 
         Domoticz.Status("Starting up")
         self.CheckForChromecast()
+        self.ConnectedChromecasts={}
+        for chromecastname in Parameters["Mode1"].split(","): 
+            ConnectedChromecasts[chromecastname]=""
 
         return True
 
     def onHeartbeat(self):
-        if type(self.chromecasts[0][1]) == type(''):
-            Domoticz.Log("Re-checking for chromecasts")
-            self.CheckForChromecast()
-        else:
-            pass
+        Scan=False
+        for cc in ConnectedChromecasts:
+            if ConnectedChromecasts[cc]=="":
+                Scan = True
+            else:
+                pass
+
+            if Scan == True:
+                Domoticz.Log("Re-checking for chromecasts")
+                self.CheckForChromecast()
 
     def onCommand(self, Unit, Command, Level, Hue):
         Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
@@ -161,13 +186,6 @@ class BasePlugin:
         p.start()
         self.chromecasts=(q.get())
         #p.join()
-
-        for i, ChromecastName in enumerate(self.chromecasts):
-        	if type(ChromecastName[1]) != type(''):
-        		Domoticz.Status("Registering listeners for "+ChromecastName[0])
-        		ChromecastNames[i]=[ChromecastName[0],ChromecastName[1],threading.Thread(target = startListening, args = (ChromecastName[1], ))]
-				ChromecastNames[i][2].daemon = True
-        		ChromecastNames[i][2].start()
 
 global _plugin
 _plugin = BasePlugin()
@@ -254,14 +272,13 @@ def UpdateImage(Unit, Logo):
     return
 
 def ConnectChromeCast(q):
+    global _plugin
     try:
-        #ChromecastName = Parameters["Mode1"]
         ChromecastNames = Parameters["Mode1"].split(",")
     except:
         ChromecastNames=["Test Device"]
 
     Domoticz.Status("Checking for available chromecasts")
-    WriteToDomoticzLog("Status", "Checking for available chromecasts")
     try:
         chromecasts = pychromecast.get_chromecasts()
         if len(chromecasts) != 0:
@@ -273,33 +290,25 @@ def ConnectChromeCast(q):
 
     if len(chromecasts) != 0:
         for i, ChromecastName in enumerate(ChromecastNames):
-            Domoticz.Status("Trying to connect to "+ChromecastName)
-            try:
-                #Add chromecast object to the chromecast name
-                ChromecastNames[i]=[ChromecastName,next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)]
+            #Check if chrmecast is already connected
+            if self.ConnectedChromecasts[ChromecastName] == "":
+                #Try to find the chromecast in the available chromecasts
+                try:
+                    #Create a chromecast instance.
+                    cc=Chromecast(next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName),_plugin)
+                except StopIteration:
+                    Domoticz.Error("Could not connect to "+ChromecastName)
+                except Exception as e:
+                    senderror(e)
+
+                self.ConnectedChromecasts[ChromecastName]=cc
                 Domoticz.Status("Connected to " + ChromecastName)
-            except StopIteration:
-                Domoticz.Error("Could not connect to "+ChromecastName)
-            except Exception as e:
-                senderror(e)
+                self.ConnectedChromecasts[ChromecastName].startListening()
+            else:
+                Domoticz.Log("Already connected to "+ChromecastName)
 
     q.put(ChromecastNames)
 
-def WriteToDomoticzLog(Type, Text):
-    Domoticz.Status("Received " + Text)
-    if Type== "Status":
-        Domoticz.Status(Text)
-
-
-def startListening(chromecast):
-    Domoticz.Log("Registering listeners")
-    listenerCast = StatusListener(chromecast.name, chromecast)
-    chromecast.register_status_listener(listenerCast)
-
-    listenerMedia = StatusMediaListener(chromecast.name, chromecast)
-    chromecast.media_controller.register_status_listener(listenerMedia)
-
-    Domoticz.Log("Done registering listeners")
 
 # Update Device into database
 def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
@@ -316,7 +325,3 @@ if debug==True:
     p.start()
     chromecast=(q.get())
     p.join()
-
-
-
-

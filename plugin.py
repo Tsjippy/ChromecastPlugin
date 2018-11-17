@@ -101,20 +101,19 @@ class BasePlugin:
         Domoticz.Status("Checking if images are loaded")
         if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
 
-        # Check if devices need to be created
-        createDevices()
-
         if Parameters["Mode6"]=="Debug":
             DumpConfigToLog()
 
-        Domoticz.Heartbeat(30)
-
         Domoticz.Status("Starting up")
         self.ConnectedChromecasts={}
-        for chromecastname in Parameters["Mode1"].split(","): 
-            self.ConnectedChromecasts[chromecastname]=""
+
+        for i, chromecastname in enumerate(Parameters["Mode1"].split(",")): 
+            self.ConnectedChromecasts[chromecastname.strip()]=[i,""]
 
         self.ConnectedChromecasts=ConnectChromeCast(self.ConnectedChromecasts)
+
+        # Check if devices need to be created
+        createDevices(self.ConnectedChromecasts)
 
         return True
 
@@ -124,7 +123,7 @@ class BasePlugin:
 
         for ChromecastName in self.ConnectedChromecasts:
             #Check if chromecast is already connected
-            if self.ConnectedChromecasts[ChromecastName] == "":
+            if self.ConnectedChromecasts[ChromecastName][1] == "":
                 RecheckNeeded=True
 
         if RecheckNeeded==True:
@@ -137,28 +136,39 @@ class BasePlugin:
                 self.ConnectedChromecasts=ConnectChromeCast(self.ConnectedChromecasts)
 
     def onCommand(self, Unit, Command, Level, Hue):
-        Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
-        if self.chromecast == "":
-            Domoticz.Error("No chromecast is connected!")
+        #Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
+
+        #get first number of the Unit
+        if len(str(Unit))==1:
+            ChromecastID=0
         else:
-            if Unit == 1:
+            ChromecastID=int(str(Unit)[:1])
+        #Find the corresponding chromecast
+        Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
+
+
+        if self.ConnectedChromecasts[Chromecast][1] == "":
+            Domoticz.Error("Chromecast "+Chromecast+" is not connected!")
+        else:
+            cc=self.ConnectedChromecasts[Chromecast][1]
+            if Unit-10*ChromecastID == 1:
                 if Level == 10:
                     Domoticz.Log("Start playing on chromecast")
-                    self.chromecast.media_controller.play()
+                    cc.media_controller.play()
                 elif Level == 20:
                     Domoticz.Log("Pausing chromecast")
-                    self.chromecast.media_controller.pause()
+                    cc.media_controller.pause()
                 elif Level == 30:
                     Domoticz.Log("Killing "+self.chromecast.app_display_name)
-                    self.chromecast.quit_app()
-            elif Unit == 2:
+                    cc.quit_app()
+            elif Unit-10*ChromecastID == 2:
                 vl = float(Level)/100
-                self.chromecast.set_volume(vl)
-            elif Unit == 4:
+                cc.set_volume(vl)
+            elif Unit-10*ChromecastID == 4:
                 if Level == 30:
                     Domoticz.Log("Starting Youtube on chromecast")
                     yt = YouTubeController()
-                    self.chromecast.register_handler(yt)
+                    cc.register_handler(yt)
 
 global _plugin
 _plugin = BasePlugin()
@@ -198,36 +208,38 @@ def senderror(e):
     Domoticz.Error('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+" Error is "+str(e))
     return
 
-def createDevices():
-    if 1 not in Devices:
-        OPTIONS1 =  {   "LevelActions"  : "|||||",
-                        "LevelNames"    : "Off|Play|Pause|Stop",
-                        "LevelOffHidden": "true",
-                        "SelectorStyle" : "0"
-                    }
-        Domoticz.Log("Created 'Status' device")
-        Domoticz.Device(Name="Control", Unit=1, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS1, Used=1).Create()
-        UpdateImage(1, 'ChromecastLogo')
+def createDevices(ConnectedChromecasts):
+    for Chromecast in ConnectedChromecasts:
+        x=ConnectedChromecasts[Chromecast][0]*10
+        if x+1 not in Devices:
+            OPTIONS1 =  {   "LevelActions"  : "|||||",
+                            "LevelNames"    : "Off|Play|Pause|Stop",
+                            "LevelOffHidden": "true",
+                            "SelectorStyle" : "0"
+                        }
+            Domoticz.Log("Created 'Status' device for chromecast "+Chromecast)
+            Domoticz.Device(Name="Control-"+Chromecast, Unit=x+1, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS1, Used=1).Create()
+            UpdateImage(x+1, 'ChromecastLogo')
 
-    if 2 not in Devices:
-        Domoticz.Log("Created 'Volume' device")
-        Domoticz.Device(Name="Volume", Unit=2, Type=244, Subtype=73, Switchtype=7, Used=1).Create()
-        UpdateImage(2, 'ChromecastLogo')
+        if x+2 not in Devices:
+            Domoticz.Log("Created 'Volume' device for chromecast "+Chromecast)
+            Domoticz.Device(Name="Volume-"+Chromecast, Unit=x+2, Type=244, Subtype=73, Switchtype=7, Used=1).Create()
+            UpdateImage(x+2, 'ChromecastLogo')
 
-    if 3 not in Devices:
-        Domoticz.Log("Created 'Title' device")
-        Domoticz.Device(Name="Title", Unit=3, Type=243, Subtype=19, Used=1).Create()
-        UpdateImage(3, 'ChromecastLogo')
+        if x+3 not in Devices:
+            Domoticz.Log("Created 'Title' device for chromecast "+Chromecast)
+            Domoticz.Device(Name="Title-"+Chromecast, Unit=x+3, Type=243, Subtype=19, Used=1).Create()
+            UpdateImage(x+3, 'ChromecastLogo')
 
-    if 4 not in Devices:
-        OPTIONS4 =  {   "LevelActions"  : "|||||",
-                        "LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
-                        "LevelOffHidden": "true",
-                        "SelectorStyle" : "0"
-                    }
-        Domoticz.Log("Created 'App' device")
-        Domoticz.Device(Name="App name", Unit=4, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS4, Used=1).Create()
-        UpdateImage(4, 'ChromecastLogo')
+        if x+4 not in Devices:
+            OPTIONS4 =  {   "LevelActions"  : "|||||",
+                            "LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
+                            "LevelOffHidden": "true",
+                            "SelectorStyle" : "0"
+                        }
+            Domoticz.Log("Created 'App' device for chromecast "+Chromecast)
+            Domoticz.Device(Name="App name-"+Chromecast, Unit=x+4, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS4, Used=1).Create()
+            UpdateImage(x+4, 'ChromecastLogo')
 
     Domoticz.Log("Devices check done")
     return
@@ -252,7 +264,7 @@ def ScanForChromecasts(q,ConnectedChromecasts):
         Recheck=False
         for ChromecastName in ConnectedChromecasts:
             #Check if chrmecast is already connected
-            if ConnectedChromecasts[ChromecastName] == "":
+            if ConnectedChromecasts[ChromecastName][1] == "":
                 #Try to find the chromecast in the available chromecasts
                 try:
                     #Create a chromecast instance.
@@ -282,12 +294,12 @@ def ConnectChromeCast(ConnectedChromecasts):
     if len(chromecasts) != 0:
         for ChromecastName in ConnectedChromecasts:
             #Check if chrmecast is already connected
-            if ConnectedChromecasts[ChromecastName] == "":
+            if ConnectedChromecasts[ChromecastName][1] == "":
                 #Try to find the chromecast in the available chromecasts
                 try:
                     #Create a chromecast instance.
                     cc=next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)
-                    ConnectedChromecasts[ChromecastName]=cc
+                    ConnectedChromecasts[ChromecastName][1]=cc
                     Domoticz.Status("Connected to " + ChromecastName)
                     startListening(cc)
                 except StopIteration:

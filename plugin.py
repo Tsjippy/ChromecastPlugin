@@ -57,20 +57,33 @@ class StatusListener:
     def __init__(self, name, cast):
         self.name = name
         self.cast = cast
-        self.Appname=""
-        self.Volume=0
+        self.Appname =""
+        self.Volume =0
+        self.ChromecastID =_plugin.ConnectedChromecasts[self.name][0]
 
     def new_cast_status(self, status):
         if self.Appname != status.display_name:
+            DeviceID=10*self.ChromecastID+4
             self.Appname = status.display_name
-            Domoticz.Log("The app changed to "+status.display_name)
-            UpdateDevice(4,0,str(self.Appname))
+            Domoticz.Log("The app changed to "+self.Appname)
+
+            if self.Appname == "Spotify":
+                Level=10
+            elif self.Appname == "Netflix":
+                Level=20
+            elif self.Appname == "Youtube":
+                Level=30
+            else:
+                Level=40
+            UpdateDevice(DeviceID,Level,Level)
 
         if self.Volume != status.volume_level:
             self.Volume = status.volume_level
+            DeviceID=10*self.ChromecastID+2
+
             Volume = int(self.Volume*100)
             Domoticz.Log("Updated volume to "+str(Volume))
-            UpdateDevice(2,Volume,str(Volume))
+            UpdateDevice(DeviceID,2,Volume)
 
 
 class StatusMediaListener:
@@ -79,22 +92,41 @@ class StatusMediaListener:
         self.cast= cast
         self.Mode=""
         self.Title=""
+        self.ChromecastID =_plugin.ConnectedChromecasts[self.name][0]
 
     def new_media_status(self, status):
-        #Domoticz.Log("Mediastatus "+str(status))
         if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
             self.Mode = status.player_state
+            DeviceID=10*self.ChromecastID+1
             Domoticz.Log("The playing mode has changed to "+self.Mode)
-            UpdateDevice(1,0,self.Mode)
+
+            if self.Mode == "PLAYING":
+                level=10
+            elif self.Mode == "PAUSED":
+                level=20
+            else:
+                level=30
+            UpdateDevice(DeviceID,level,level)
         if self.Title != status.title:
             self.Title = status.title
+
+            DeviceID=10*self.ChromecastID+3
             Domoticz.Log("The title is changed to  "+self.Title)
-            UpdateDevice(3,0,self.Title)
+            UpdateDevice(DeviceID,0,self.Title)
 
 class BasePlugin:
     enabled = False
     def __init__(self):
-        self.heartbeatcounter=0
+        self.StatusOptions=  {   "LevelActions"  : "|||||",
+            "LevelNames"    : "Off|Play|Pause|Stop",
+            "LevelOffHidden": "true",
+            "SelectorStyle" : "0"
+        }
+        self.AppOptions =  {   "LevelActions"  : "|||||",
+            "LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
+            "LevelOffHidden": "true",
+            "SelectorStyle" : "0"
+        }
 
     def onStart(self):
         # Check if images are in database
@@ -119,7 +151,6 @@ class BasePlugin:
 
     def onHeartbeat(self):
         RecheckNeeded=False
-        self.heartbeatcounter += 1
 
         for ChromecastName in self.ConnectedChromecasts:
             #Check if chromecast is already connected
@@ -212,13 +243,8 @@ def createDevices(ConnectedChromecasts):
     for Chromecast in ConnectedChromecasts:
         x=ConnectedChromecasts[Chromecast][0]*10
         if x+1 not in Devices:
-            OPTIONS1 =  {   "LevelActions"  : "|||||",
-                            "LevelNames"    : "Off|Play|Pause|Stop",
-                            "LevelOffHidden": "true",
-                            "SelectorStyle" : "0"
-                        }
             Domoticz.Log("Created 'Status' device for chromecast "+Chromecast)
-            Domoticz.Device(Name="Control-"+Chromecast, Unit=x+1, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS1, Used=1).Create()
+            Domoticz.Device(Name="Control-"+Chromecast, Unit=x+1, TypeName="Selector Switch", Switchtype=18, Options=_plugin.StatusOptions, Used=1).Create()
             UpdateImage(x+1, 'ChromecastLogo')
 
         if x+2 not in Devices:
@@ -232,13 +258,8 @@ def createDevices(ConnectedChromecasts):
             UpdateImage(x+3, 'ChromecastLogo')
 
         if x+4 not in Devices:
-            OPTIONS4 =  {   "LevelActions"  : "|||||",
-                            "LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
-                            "LevelOffHidden": "true",
-                            "SelectorStyle" : "0"
-                        }
             Domoticz.Log("Created 'App' device for chromecast "+Chromecast)
-            Domoticz.Device(Name="App name-"+Chromecast, Unit=x+4, TypeName="Selector Switch", Switchtype=18, Options=OPTIONS4, Used=1).Create()
+            Domoticz.Device(Name="App name-"+Chromecast, Unit=x+4, TypeName="Selector Switch", Switchtype=18, Options=_plugin.AppOptions, Used=1).Create()
             UpdateImage(x+4, 'ChromecastLogo')
 
     Domoticz.Log("Devices check done")

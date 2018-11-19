@@ -38,6 +38,13 @@
 #############################################################################
 import sys
 import queue
+import requests
+import socket
+import http.server
+import socketserver
+import os
+import pychromecast
+from pychromecast.controllers.youtube import YouTubeController
 from multiprocessing import Process, Queue
 
 try:
@@ -47,8 +54,7 @@ except ImportError:
     import fakeDomoticz as Domoticz
     debug = True
 
-import pychromecast
-from pychromecast.controllers.youtube import YouTubeController
+
 
 #############################################################################
 #                      Domoticz call back functions                         #
@@ -105,7 +111,13 @@ class StatusMediaListener:
             elif self.Mode == "PAUSED":
                 level=20
             else:
-                level=30
+                level=0
+                #Appname
+                AppDeviceID=10*self.ChromecastID+4
+                UpdateDevice(AppDeviceID,0,0)
+                #Volume
+                AppDeviceID=10*self.ChromecastID+2
+                UpdateDevice(AppDeviceID,0,0)
             UpdateDevice(DeviceID,level,level)
         if self.Title != status.title:
             self.Title = status.title
@@ -117,6 +129,9 @@ class StatusMediaListener:
 class BasePlugin:
     enabled = False
     def __init__(self):
+        self.url= "http://127.0.0.1:8080"               #Address of domoticz
+        self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
+
         self.StatusOptions=  {   "LevelActions"  : "|||||",
             "LevelNames"    : "Off|Play|Pause|Stop",
             "LevelOffHidden": "true",
@@ -146,7 +161,20 @@ class BasePlugin:
 
         # Check if devices need to be created
         createDevices(self.ConnectedChromecasts)
+        
+        #Get variables
+        self.VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
 
+        for chromecast in self.ConnectedChromecasts:
+            try:
+                variable=next(var for var in self.VariablesIDX if var["Name"]==chromecast)
+                self.ConnectedChromecasts[chromecast]+=[variable["idx"]]
+            except StopIteration:
+                Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
+
+        #Start FileServer
+        fileserver()
+        
         return True
 
     def onHeartbeat(self):
@@ -156,6 +184,19 @@ class BasePlugin:
             #Check if chromecast is already connected
             if self.ConnectedChromecasts[ChromecastName][1] == "":
                 RecheckNeeded=True
+
+            #Check if text needs to be spoken
+            try:
+                Text = requests.get(url=self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2]).json()['result'][0]['Value']
+                if Text != "":
+                    Domoticz.Log("variable for "+ChromecastName+" contains "+Text)
+                    requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
+                    os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=nl-NL" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o /tmp/message.mp3')
+                    Domoticz.Log('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
+                    mc=self.ConnectedChromecasts[ChromecastName][1].media_controller
+                    mc.play_media('http://192.168.0.160:8000/message.mp3', 'music/mp3')
+            except:
+                Domoticz.Error("Could not read variable value via url "+self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2])
 
         if RecheckNeeded==True:
             q = Queue()
@@ -190,7 +231,7 @@ class BasePlugin:
                     Domoticz.Log("Pausing chromecast")
                     cc.media_controller.pause()
                 elif Level == 30:
-                    Domoticz.Log("Killing "+self.chromecast.app_display_name)
+                    Domoticz.Log("Killing "+cc.app_display_name)
                     cc.quit_app()
             elif Unit-10*ChromecastID == 2:
                 vl = float(Level)/100
@@ -240,7 +281,17 @@ def senderror(e):
     return
 
 def createDevices(ConnectedChromecasts):
+    global _plugin
     for Chromecast in ConnectedChromecasts:
+        #Check if variable needs to be created
+        result=requests.get(url=_plugin.url+"/json.htm?type=command&param=saveuservariable&vname="+Chromecast+"&vtype=2&vvalue=").json()["status"]
+        if result=="OK":
+            Domoticz.Log("Created uservariable for '"+Chromecast+"'")
+        elif result=="Variable name already exists!":
+            Domoticz.Log("Variable for "+Chromecast+" already exists.")
+        else:
+            Domoticz.Error("Could not create '"+Chromecast+"', result was "+result)
+
         x=ConnectedChromecasts[Chromecast][0]*10
         if x+1 not in Devices:
             Domoticz.Log("Created 'Status' device for chromecast "+Chromecast)
@@ -350,6 +401,22 @@ def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
             Devices[Unit].Update(nValue, str(sValue))
             Domoticz.Log("Update " + Devices[Unit].Name + ": " + str(nValue) + " - '" + str(sValue) + "'")
     return
+
+def fileserver():
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        Domoticz.Log("Starting file server on port 8000")
+        #Make files available from port 8000
+        os.chdir("/tmp")
+        PORT = 8000
+        Handler = http.server.SimpleHTTPRequestHandler
+        httpd = socketserver.TCPServer(("", PORT), Handler)
+        q = Queue()
+        p = Process(target=httpd.serve_forever)
+        p.start()
+        Domoticz.Log("Files of the tmp directory are now available on port 8000")
+    except Exception as e:
+        senderror(e)
 
 if debug==True:
     ConnectChromeCast()

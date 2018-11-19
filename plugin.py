@@ -143,6 +143,12 @@ class BasePlugin:
         }
 
     def onStart(self):
+        self.Filelocation=Parameters["Mode2"]
+        self.Port = int(Parameters["Mode3"])
+
+        if not os.path.isdir(self.Filelocation):
+            Domoticz.Status("Created folder "+self.Filelocation)
+            os.makedirs(self.Filelocation)
         # Check if images are in database
         Domoticz.Status("Checking if images are loaded")
         if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
@@ -191,13 +197,13 @@ class BasePlugin:
                 Text = requests.get(url=self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2]).json()['result'][0]['Value']
                 if Text != "":
                     Domoticz.Log("variable for "+ChromecastName+" contains "+Text)
+                    #Reset the variable to empty
                     requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
                     if self.ConnectedChromecasts[ChromecastName][1] != "":
-                        os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=nl-NL" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o /tmp/message.mp3')
+                        os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=nl-NL" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o '+self.Filelocation+'/message.mp3')
                         Domoticz.Log('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
                         mc=self.ConnectedChromecasts[ChromecastName][1].media_controller
-                        Port = int(Parameters["Mode3"])
-                        mc.play_media('http://'+self.ip+':'+Port+'/message.mp3', 'music/mp3')
+                        mc.play_media('http://'+self.ip+':'+self.Port+'/message.mp3', 'music/mp3')
                     else:
                         Domoticz.Error("Cannot play text on "+ChromecastName+" as the chromecast is not connected")
             except:

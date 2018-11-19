@@ -23,6 +23,8 @@
     </description>
     <params>
         <param field="Mode1" label="Chromecast name " width="200px" required="true"/>
+        <param field="Mode2" label="Temp Directory for message files" width="200px" required="true"/>
+        <param field="Mode3" label="Port for filesharing" width="200px" required="true"/>
         <param field="Mode6" label="Debug" width="100px">
             <options>
                 <option label="True" value="Debug"/>
@@ -53,8 +55,6 @@ try:
 except ImportError:
     import fakeDomoticz as Domoticz
     debug = True
-
-
 
 #############################################################################
 #                      Domoticz call back functions                         #
@@ -90,7 +90,6 @@ class StatusListener:
             Volume = int(self.Volume*100)
             Domoticz.Log("Updated volume to "+str(Volume))
             UpdateDevice(DeviceID,2,Volume)
-
 
 class StatusMediaListener:
     def __init__(self, name, cast):
@@ -129,7 +128,7 @@ class StatusMediaListener:
 class BasePlugin:
     enabled = False
     def __init__(self):
-        self.url= "http://127.0.0.1:8080"               #Address of domoticz
+        self.url= "http://127.0.0.1:8080"
         self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
 
         self.StatusOptions=  {   "LevelActions"  : "|||||",
@@ -173,8 +172,10 @@ class BasePlugin:
                 Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
 
         #Start FileServer
+        self.ip=get_ip()
+        Domoticz.Log("Local ip address is "+self.ip)
         fileserver()
-        
+
         return True
 
     def onHeartbeat(self):
@@ -191,21 +192,29 @@ class BasePlugin:
                 if Text != "":
                     Domoticz.Log("variable for "+ChromecastName+" contains "+Text)
                     requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
-                    os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=nl-NL" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o /tmp/message.mp3')
-                    Domoticz.Log('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
-                    mc=self.ConnectedChromecasts[ChromecastName][1].media_controller
-                    mc.play_media('http://192.168.0.160:8000/message.mp3', 'music/mp3')
+                    if self.ConnectedChromecasts[ChromecastName][1] != "":
+                        os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=nl-NL" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o /tmp/message.mp3')
+                        Domoticz.Log('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
+                        mc=self.ConnectedChromecasts[ChromecastName][1].media_controller
+                        Port = int(Parameters["Mode3"])
+                        mc.play_media('http://'+self.ip+':'+Port+'/message.mp3', 'music/mp3')
+                    else:
+                        Domoticz.Error("Cannot play text on "+ChromecastName+" as the chromecast is not connected")
             except:
                 Domoticz.Error("Could not read variable value via url "+self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2])
 
         if RecheckNeeded==True:
+            Domoticz.Log("Checking for available chromecasts")
             q = Queue()
             p = Process(target=ScanForChromecasts, args=(q,self.ConnectedChromecasts,))
             p.start()
             self.Recheck=q.get()
             p.terminate()
             if self.Recheck == True:
+                Domoticz.Log("Connecting to available chromecasts")
                 self.ConnectedChromecasts=ConnectChromeCast(self.ConnectedChromecasts)
+            else:
+                Domoticz.Log("No available chromecasts found")
 
     def onCommand(self, Unit, Command, Level, Hue):
         #Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
@@ -325,15 +334,14 @@ def UpdateImage(Unit, Logo):
     return
 
 def ScanForChromecasts(q,ConnectedChromecasts):
-    Domoticz.Status("Checking for available chromecasts")
+    Recheck=False
     try:
         chromecasts = pychromecast.get_chromecasts()
     except Exception as e:
-        senderror(e)
+        pass
 
     #Check if there any non-connected chromecast available
     if len(chromecasts) != 0:
-        Recheck=False
         for ChromecastName in ConnectedChromecasts:
             #Check if chrmecast is already connected
             if ConnectedChromecasts[ChromecastName][1] == "":
@@ -402,19 +410,30 @@ def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
             Domoticz.Log("Update " + Devices[Unit].Name + ": " + str(nValue) + " - '" + str(sValue) + "'")
     return
 
+def get_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        IP = s.getsockname()[0]
+    except:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
 def fileserver():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        Domoticz.Log("Starting file server on port 8000")
-        #Make files available from port 8000
-        os.chdir("/tmp")
-        PORT = 8000
+        Port = int(Parameters["Mode3"])
+        Domoticz.Log("Starting file server on port "+str(Port))
+        Filelocation=Parameters["Mode2"]
+        os.chdir(Filelocation)
         Handler = http.server.SimpleHTTPRequestHandler
-        httpd = socketserver.TCPServer(("", PORT), Handler)
-        q = Queue()
+        httpd = socketserver.TCPServer(("", Port), Handler)
         p = Process(target=httpd.serve_forever)
         p.start()
-        Domoticz.Log("Files of the tmp directory are now available on port 8000")
+        Domoticz.Log("Files in the '"+Filelocation+"' directory are now available on port "+str(Port))
     except Exception as e:
         senderror(e)
 

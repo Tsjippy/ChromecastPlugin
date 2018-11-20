@@ -5,11 +5,14 @@
 <plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.0.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
-        This plugin add devices to Domoticz to control your chromecast, and to retrieve its current app, title, playing mode.<br/><br/>
+        This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
+        Every chromecast gets its own set of devices.<br/><br/>
         <h3>Features</h3>
         <ul style="list-style-type:square">
-            <li>Pause, Play or stop the app on the chromecast</li>
+            <li>Pause, Play or stop the app on the chromecast.</li>
             <li>See current connected app, title and playing mode.</li>
+            <li>See or set the volume on the chromecast.</li>
+            <li>Use a variable as an input for text to be spoken on the chromecast.</li>
         </ul>
         <h3>Devices</h3>
         <ul style="list-style-type:square">
@@ -17,14 +20,19 @@
             <li>Switch device - Connected app</li>
             <li>Volume device - See or adjust the current volume</li>
             <li>Text device - See current title</li>
+            <li>Variable - Input field for text to be spoken on the chromecast</li> 
         </ul>
         <h3>Configuration</h3>
-        Just add your chromecast name
+        Fill in the name(s) of your chromecast(s). In case of multiple sepereate them with a comma.<br/>
+        Fill in a directory to be used as downloads location for text.mp3, non existing directories will get created.<br/>
+        Fill in a port on which the files in the directory will be available.<br/>
+        Fill in the languague in which the text will be given.<br/><br/>
     </description>
     <params>
-        <param field="Mode1" label="Chromecast name " width="200px" required="true"/>
-        <param field="Mode2" label="Temp Directory for message files" width="200px" required="true"/>
-        <param field="Mode3" label="Port for filesharing" width="200px" required="true"/>
+        <param field="Mode1" label="Chromecast name(s)" width="600px" required="true"/>
+        <param field="Mode2" label="Directory for message files" width="400px" required="true" default="/tmp/"/>
+        <param field="Mode3" label="Port for filesharing" width="50px" required="true" default="8000"/>
+        <param field="Mode4" label="Message language" width="50px" required="true" default="en-US"/>
         <param field="Mode6" label="Debug" width="100px">
             <options>
                 <option label="True" value="Debug"/>
@@ -145,10 +153,13 @@ class BasePlugin:
     def onStart(self):
         self.Filelocation=Parameters["Mode2"]
         self.Port = int(Parameters["Mode3"])
+        self.Languague = Parameters["Mode4"]
 
+        #Create temppath if it dos not exist
         if not os.path.isdir(self.Filelocation):
             Domoticz.Status("Created folder "+self.Filelocation)
             os.makedirs(self.Filelocation)
+
         # Check if images are in database
         Domoticz.Status("Checking if images are loaded")
         if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
@@ -157,8 +168,9 @@ class BasePlugin:
             DumpConfigToLog()
 
         Domoticz.Status("Starting up")
-        self.ConnectedChromecasts={}
 
+        #ConnectedChromecasts[Chromecastname] has 3 values in the end: index, chromecast object, and variable IDX
+        self.ConnectedChromecasts={}
         for i, chromecastname in enumerate(Parameters["Mode1"].split(",")): 
             self.ConnectedChromecasts[chromecastname.strip()]=[i,""]
 
@@ -170,6 +182,7 @@ class BasePlugin:
         #Get variables
         self.VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
 
+        #Retrieve the Domoticz IDX of the variables
         for chromecast in self.ConnectedChromecasts:
             try:
                 variable=next(var for var in self.VariablesIDX if var["Name"]==chromecast)
@@ -196,21 +209,23 @@ class BasePlugin:
             try:
                 Text = requests.get(url=self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2]).json()['result'][0]['Value']
                 if Text != "":
-                    Domoticz.Log("variable for "+ChromecastName+" contains "+Text)
                     #Reset the variable to empty
                     requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
                     if self.ConnectedChromecasts[ChromecastName][1] != "":
-                        os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl=nl-NL" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o '+self.Filelocation+'/message.mp3')
+                        #Create mp3
+                        os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+self.Languague+'" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o '+self.Filelocation+'/message.mp3')
                         Domoticz.Log('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
                         mc=self.ConnectedChromecasts[ChromecastName][1].media_controller
-                        mc.play_media('http://'+self.ip+':'+self.Port+'/message.mp3', 'music/mp3')
+                        #Play on chromecast
+                        mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
                     else:
-                        Domoticz.Error("Cannot play text on "+ChromecastName+" as the chromecast is not connected")
-            except:
-                Domoticz.Error("Could not read variable value via url "+self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2])
+                        Domoticz.Error("Cannot play "+Text+" on "+ChromecastName+" as the chromecast is not connected")
+            except Exception as e:
+                senderror(e)
 
         if RecheckNeeded==True:
-            Domoticz.Log("Checking for available chromecasts")
+            #Check if a chromecast is available in a seperate process.
+            #If available connect to it in this process.
             q = Queue()
             p = Process(target=ScanForChromecasts, args=(q,self.ConnectedChromecasts,))
             p.start()
@@ -219,12 +234,8 @@ class BasePlugin:
             if self.Recheck == True:
                 Domoticz.Log("Connecting to available chromecasts")
                 self.ConnectedChromecasts=ConnectChromeCast(self.ConnectedChromecasts)
-            else:
-                Domoticz.Log("No available chromecasts found")
 
     def onCommand(self, Unit, Command, Level, Hue):
-        #Domoticz.Log("onCommand called for Unit " + str(Unit) + ": Parameter '" + str(Command) + "', Level: " + str(Level))
-
         #get first number of the Unit
         if len(str(Unit))==1:
             ChromecastID=0
@@ -232,7 +243,6 @@ class BasePlugin:
             ChromecastID=int(str(Unit)[:1])
         #Find the corresponding chromecast
         Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
-
 
         if self.ConnectedChromecasts[Chromecast][1] == "":
             Domoticz.Error("Chromecast "+Chromecast+" is not connected!")

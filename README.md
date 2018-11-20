@@ -4,7 +4,9 @@ Chromecast plugin for Domoticz, based on PyChromecast
 
 Short summary
 -------------
-This plugin add devices to Domoticz to control your chromecast, and to retrieve its current app, title, playing mode.
+This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve the current app, title, volume and playing mode.
+Every chromecast gets its own set of devices.
+The variable is used to send text to the chromecast to pronounce in a languague which can be set via the hardware options.
 
 Installation and setup
 ----------------------
@@ -27,5 +29,5 @@ sudo service domoticz.sh restart
 Known bugs
 ----------
 * Does not work with the current stable of domoticz, you need the latest beta
-* The created devices are read-only.
 * You can't just install pychromecast like this: sudo pip3 install pychromecast. It has to be installed in the plugin folder.
+* In order to delete the hardware you need to disable it, then restart domoticz, then delete it

@@ -7,6 +7,7 @@ Short summary
 This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve the current app, title, volume and playing mode.
 Every chromecast gets its own set of devices.
 The variable is used to send text to the chromecast to pronounce in a languague which can be set via the hardware options.
+Just add a languague code like 'en-US' or 'nl-NL', type in any text in the auto-generated variable. The text will be spoken on the relevant chromecast.
 
 Installation and setup
 ----------------------

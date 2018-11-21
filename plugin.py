@@ -87,6 +87,8 @@ class StatusListener:
 				Level=20
 			elif self.Appname == "Youtube":
 				Level=30
+			elif self.Appname == "Default Media Receiver":
+				Level=40
 			else:
 				Level=0
 			UpdateDevice(DeviceID,Level,Level)
@@ -116,6 +118,8 @@ class StatusMediaListener:
 				level=10
 			elif self.Mode == "PAUSED":
 				level=20
+			elif self.Mode == "UNKNOWN":
+				level=0
 			else:
 				level=0
 				#Appname
@@ -216,9 +220,13 @@ class BasePlugin:
 			RecheckNeeded=False
 
 			for ChromecastName in self.ConnectedChromecasts:
+
 				#Check if chromecast is already connected
 				if self.ConnectedChromecasts[ChromecastName][1] == "":
 					RecheckNeeded=True
+				elif self.ConnectedChromecasts[ChromecastName][1].media_controller.status.player_state == "UNKNOWN":
+					DeviceID=10*self.ConnectedChromecasts[ChromecastName][0]+1
+					#UpdateDevice(DeviceID,0,0)
 
 				#Check if text needs to be spoken
 				try:
@@ -257,7 +265,7 @@ class BasePlugin:
 			ChromecastID=0
 		else:
 			ChromecastID=int(str(Unit)[:1])
-			
+
 		#Find the corresponding chromecast
 		Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
 
@@ -473,6 +481,7 @@ def fileserver():
 		Handler = http.server.SimpleHTTPRequestHandler
 		httpd = socketserver.TCPServer(("", Port), Handler)
 		p = Process(target=httpd.serve_forever)
+		p.deamon=True
 		p.start()
 		Domoticz.Log("Files in the '"+Filelocation+"' directory are now available on port "+str(Port))
 	except Exception as e:

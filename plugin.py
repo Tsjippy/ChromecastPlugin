@@ -88,7 +88,7 @@ class StatusListener:
             elif self.Appname == "Youtube":
                 Level=30
             else:
-                Level=40
+                Level=0
             UpdateDevice(DeviceID,Level,Level)
 
         if self.Volume != status.volume_level:

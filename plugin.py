@@ -157,53 +157,57 @@ class BasePlugin:
 		self.Languague = Parameters["Mode4"]
 		self.ip=get_ip()
 		self.error=False
-		if Settings["WebUserName"] != "" and "127.0.0.*" not in Settings["WebLocalNetworks"] and self.ip not in Settings["WebLocalNetworks"]:
-			Domoticz.Error("You have set a password, but have not excluded your local ip. Please do so, then restart domoticz.")
-			self.error=True
-		else:
-			#Create temppath if it dos not exist
+		try:
+			if Settings["WebUserName"] != "" and "127.0.0.*" not in Settings["WebLocalNetworks"] and self.ip not in Settings["WebLocalNetworks"]:
+				Domoticz.Error("You have set a password, but have not excluded your local ip. Please do so, then restart domoticz.")
+				self.error=True
+		except:
+			pass
+		
+		if self.error==False:
+			#Create temppath if it does not exist
 			if not os.path.isdir(self.Filelocation):
 				Domoticz.Status("Created folder "+self.Filelocation)
 				os.makedirs(self.Filelocation)
 
-		# Check if images are in database
-		Domoticz.Status("Checking if images are loaded")
-		if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
+			# Check if images are in database
+			Domoticz.Status("Checking if images are loaded")
+			if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
 
-		if Parameters["Mode6"]=="Debug":
-			DumpConfigToLog()
+			if Parameters["Mode6"]=="Debug":
+				DumpConfigToLog()
 
-		Domoticz.Status("Starting up")
+			Domoticz.Status("Starting up")
 
-		#ConnectedChromecasts[Chromecastname] has 3 values in the end: index, chromecast object, and variable IDX
-		self.ConnectedChromecasts={}
-		for i, chromecastname in enumerate(Parameters["Mode1"].split(",")): 
-			self.ConnectedChromecasts[chromecastname.strip()]=[i,""]
+			#ConnectedChromecasts[Chromecastname] has 3 values in the end: index, chromecast object, and variable IDX
+			self.ConnectedChromecasts={}
+			for i, chromecastname in enumerate(Parameters["Mode1"].split(",")): 
+				self.ConnectedChromecasts[chromecastname.strip()]=[i,""]
 
-		self.ConnectedChromecasts=ConnectChromeCast(self.ConnectedChromecasts)
+			self.ConnectedChromecasts=ConnectChromeCast(self.ConnectedChromecasts)
 
-		if Settings["AcceptNewHardware"] != "1":
-			if len(Devices) < len(self.ConnectedChromecasts)*4:
-				Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices. Then restart Domoticz.")
-				self.error=True
-		else:
-			# Check if devices need to be created
-			createDevices(self.ConnectedChromecasts)
+			if Settings["AcceptNewHardware"] != "1":
+				if len(Devices) < len(self.ConnectedChromecasts)*4:
+					Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices. Then restart Domoticz.")
+					self.error=True
+			else:
+				# Check if devices need to be created
+				createDevices(self.ConnectedChromecasts)
 
-			#Get variables
-			self.VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
+				#Get variables
+				self.VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
 
-			#Retrieve the Domoticz IDX of the variables
-			for chromecast in self.ConnectedChromecasts:
-				try:
-					variable=next(var for var in self.VariablesIDX if var["Name"]==chromecast)
-					self.ConnectedChromecasts[chromecast]+=[variable["idx"]]
-				except StopIteration:
-					Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
+				#Retrieve the Domoticz IDX of the variables
+				for chromecast in self.ConnectedChromecasts:
+					try:
+						variable=next(var for var in self.VariablesIDX if var["Name"]==chromecast)
+						self.ConnectedChromecasts[chromecast]+=[variable["idx"]]
+					except StopIteration:
+						Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
 
-			#Start FileServer
-			Domoticz.Log("Local ip address is "+self.ip)
-			fileserver()
+				#Start FileServer
+				Domoticz.Log("Local ip address is "+self.ip)
+				fileserver()
 
 		return True
 
@@ -256,28 +260,28 @@ class BasePlugin:
 			#Find the corresponding chromecast
 			Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
 
-		if self.ConnectedChromecasts[Chromecast][1] == "":
-			Domoticz.Error("Chromecast "+Chromecast+" is not connected!")
-		else:
-			cc=self.ConnectedChromecasts[Chromecast][1]
-			if Unit-10*ChromecastID == 1:
-				if Level == 10:
-					Domoticz.Log("Start playing on chromecast")
-					cc.media_controller.play()
-				elif Level == 20:
-					Domoticz.Log("Pausing chromecast")
-					cc.media_controller.pause()
-				elif Level == 30:
-					Domoticz.Log("Killing "+cc.app_display_name)
-					cc.quit_app()
-			elif Unit-10*ChromecastID == 2:
-				vl = float(Level)/100
-				cc.set_volume(vl)
-			elif Unit-10*ChromecastID == 4:
-				if Level == 30:
-					Domoticz.Log("Starting Youtube on chromecast")
-					yt = YouTubeController()
-					cc.register_handler(yt)
+			if self.ConnectedChromecasts[Chromecast][1] == "":
+				Domoticz.Error("Chromecast "+Chromecast+" is not connected!")
+			else:
+				cc=self.ConnectedChromecasts[Chromecast][1]
+				if Unit-10*ChromecastID == 1:
+					if Level == 10:
+						Domoticz.Log("Start playing on chromecast")
+						cc.media_controller.play()
+					elif Level == 20:
+						Domoticz.Log("Pausing chromecast")
+						cc.media_controller.pause()
+					elif Level == 30:
+						Domoticz.Log("Killing "+cc.app_display_name)
+						cc.quit_app()
+				elif Unit-10*ChromecastID == 2:
+					vl = float(Level)/100
+					cc.set_volume(vl)
+				elif Unit-10*ChromecastID == 4:
+					if Level == 30:
+						Domoticz.Log("Starting Youtube on chromecast")
+						yt = YouTubeController()
+						cc.register_handler(yt)
 
 global _plugin
 _plugin = BasePlugin()

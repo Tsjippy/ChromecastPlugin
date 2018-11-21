@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.2" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -77,8 +77,8 @@ class StatusListener:
 
 	def new_cast_status(self, status):
 		if self.Appname != status.display_name:
-			DeviceID=10*self.ChromecastID+4
 			self.Appname = status.display_name
+			DeviceID=10*self.ChromecastID+4
 			Domoticz.Log("The app changed to "+self.Appname)
 
 			if self.Appname == "Spotify":
@@ -89,7 +89,7 @@ class StatusListener:
 				Level=30
 			else:
 				Level=0
-				UpdateDevice(DeviceID,Level,Level)
+			UpdateDevice(DeviceID,Level,Level)
 
 		if self.Volume != status.volume_level:
 			self.Volume = status.volume_level
@@ -257,31 +257,34 @@ class BasePlugin:
 			ChromecastID=0
 		else:
 			ChromecastID=int(str(Unit)[:1])
-			#Find the corresponding chromecast
-			Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
+			
+		#Find the corresponding chromecast
+		Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
 
-			if self.ConnectedChromecasts[Chromecast][1] == "":
-				Domoticz.Error("Chromecast "+Chromecast+" is not connected!")
-			else:
-				cc=self.ConnectedChromecasts[Chromecast][1]
-				if Unit-10*ChromecastID == 1:
-					if Level == 10:
-						Domoticz.Log("Start playing on chromecast")
-						cc.media_controller.play()
-					elif Level == 20:
-						Domoticz.Log("Pausing chromecast")
-						cc.media_controller.pause()
-					elif Level == 30:
-						Domoticz.Log("Killing "+cc.app_display_name)
-						cc.quit_app()
-				elif Unit-10*ChromecastID == 2:
-					vl = float(Level)/100
-					cc.set_volume(vl)
-				elif Unit-10*ChromecastID == 4:
-					if Level == 30:
-						Domoticz.Log("Starting Youtube on chromecast")
-						yt = YouTubeController()
-						cc.register_handler(yt)
+		if self.ConnectedChromecasts[Chromecast][1] == "":
+			Domoticz.Error("Chromecast "+Chromecast+" is not connected!")
+		else:
+			cc=self.ConnectedChromecasts[Chromecast][1]
+			if Unit-10*ChromecastID == 1:
+				if Level == 10:
+					Domoticz.Log("Start playing on chromecast")
+					cc.media_controller.play()
+				elif Level == 20:
+					Domoticz.Log("Pausing chromecast")
+					cc.media_controller.pause()
+				elif Level == 30:
+					Domoticz.Log("Killing "+cc.app_display_name)
+					cc.quit_app()
+				else:
+					Domoticz.Log("Level is "+Level+" What should I do with it?")
+			elif Unit-10*ChromecastID == 2:
+				vl = float(Level)/100
+				cc.set_volume(vl)
+			elif Unit-10*ChromecastID == 4:
+				if Level == 30:
+					Domoticz.Log("Starting Youtube on chromecast")
+					yt = YouTubeController()
+					cc.register_handler(yt)
 
 global _plugin
 _plugin = BasePlugin()
@@ -397,13 +400,14 @@ def ConnectChromeCast(ConnectedChromecasts):
 		if len(chromecasts) != 0:
 			Names="Found these chromecasts: "
 
-		for chromecast in chromecasts:
-			if Names != "Found these chromecasts: ":
-				Names+=", "
+			for chromecast in chromecasts:
+				if Names != "Found these chromecasts: ":
+					Names+=", "
 				Names+=chromecast.device.friendly_name
-				Domoticz.Log(Names)
-			else:
-				Domoticz.Status("No casting devices found, make sure they are online.")
+
+			Domoticz.Log(Names)
+		else:
+			Domoticz.Status("No casting devices found, make sure they are online.")
 	except Exception as e:
 		senderror(e)
 

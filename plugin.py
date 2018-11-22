@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.3" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.4" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -53,6 +53,7 @@ import socket
 import http.server
 import socketserver
 import os
+import time
 import pychromecast
 from pychromecast.controllers.youtube import YouTubeController
 from multiprocessing import Process, Queue
@@ -119,8 +120,6 @@ class StatusMediaListener:
 				level=10
 			elif self.Mode == "PAUSED":
 				level=20
-			elif self.Mode == "UNKNOWN":
-				level=0
 			else:
 				level=0
 				#Appname
@@ -245,6 +244,7 @@ class BasePlugin:
 							mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
 							time.sleep((MP3(self.Filelocation+'/message.mp3')).info.length)
 							cc.quit_app()
+							Domoticz.Log("Message is played.")
 						else:
 							Domoticz.Error("Cannot play '"+Text+"' on '"+ChromecastName+"' as the chromecast is not connected")
 				except Exception as e:

@@ -56,6 +56,7 @@ import os
 import pychromecast
 from pychromecast.controllers.youtube import YouTubeController
 from multiprocessing import Process, Queue
+from mutagen.mp3 import MP3
 
 try:
 	import Domoticz
@@ -238,9 +239,12 @@ class BasePlugin:
 							#Create mp3
 							os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+self.Languague+'" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o '+self.Filelocation+'/message.mp3')
 							Domoticz.Log('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
-							mc=self.ConnectedChromecasts[ChromecastName][1].media_controller
+							cc=self.ConnectedChromecasts[ChromecastName][1]
+							mc=cc.media_controller
 							#Play on chromecast
 							mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
+							time.sleep((MP3(self.Filelocation+'/message.mp3')).info.length)
+							cc.quit_app()
 						else:
 							Domoticz.Error("Cannot play '"+Text+"' on '"+ChromecastName+"' as the chromecast is not connected")
 				except Exception as e:

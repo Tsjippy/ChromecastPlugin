@@ -79,8 +79,9 @@ class StatusListener:
 
 	def new_cast_status(self, status):
 		#Domoticz.Status(str(status))
-		if self.Appname != status.display_name:
-			self.Appname = status.display_name
+
+		if self.Appname != str(status.display_name):
+			self.Appname = str(status.display_name)
 			DeviceID=10*self.ChromecastID+4
 			
 			Domoticz.Log("The app of "+self.name+" has changed to "+self.Appname)
@@ -101,7 +102,7 @@ class StatusListener:
 				UpdateDevice(AppDeviceID,0,0)
 				#Volume
 				AppDeviceID=10*self.ChromecastID+2
-				UpdateDevice(AppDeviceID,0,0)
+				UpdateDevice(AppDeviceID,2,0)
 				#Title
 				AppDeviceID=10*self.ChromecastID+3
 				UpdateDevice(AppDeviceID,0,"")
@@ -386,7 +387,7 @@ def createDevices(ConnectedChromecasts):
 		UpdateDevice(x+1,0,0)
 		UpdateDevice(x+2,0,0)
 		UpdateDevice(x+3,0,"")
-		UpdateDevice(x+4,0,0)
+		UpdateDevice(x+4,2,0)
 
 	Domoticz.Log("Devices check done")
 	return

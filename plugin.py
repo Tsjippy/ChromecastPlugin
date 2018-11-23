@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.4" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.5" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -78,21 +78,35 @@ class StatusListener:
 		self.ChromecastID =_plugin.ConnectedChromecasts[self.name][0]
 
 	def new_cast_status(self, status):
+		#Domoticz.Status(str(status))
 		if self.Appname != status.display_name:
 			self.Appname = status.display_name
 			DeviceID=10*self.ChromecastID+4
-			Domoticz.Log("The app changed to "+self.Appname)
-
-			if self.Appname == "Spotify":
+			
+			Domoticz.Log("The app of "+self.name+" has changed to "+self.Appname)
+			
+			if str(self.Appname) == "Spotify":
 				Level=10
-			elif self.Appname == "Netflix":
+			elif str(self.Appname) == "Netflix":
 				Level=20
-			elif self.Appname == "Youtube":
+			elif str(self.Appname) == "YouTube":
 				Level=30
-			elif self.Appname == "Default Media Receiver":
+			elif str(self.Appname) == "Default Media Receiver":
 				Level=40
-			else:
+			elif str(self.Appname) == "Backdrop" or str(self.Appname) == "None":
 				Level=0
+				Domoticz.Log("Will set the domoitcz devices to off.")
+				#Control
+				AppDeviceID=10*self.ChromecastID+1
+				UpdateDevice(AppDeviceID,0,0)
+				#Volume
+				AppDeviceID=10*self.ChromecastID+2
+				UpdateDevice(AppDeviceID,0,0)
+				#Title
+				AppDeviceID=10*self.ChromecastID+3
+				UpdateDevice(AppDeviceID,0,"")
+			else:
+				Level=40
 			UpdateDevice(DeviceID,Level,Level)
 
 		if self.Volume != status.volume_level:
@@ -114,7 +128,7 @@ class StatusMediaListener:
 		if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
 			self.Mode = status.player_state
 			DeviceID=10*self.ChromecastID+1
-			Domoticz.Log("The playing mode has changed to "+self.Mode)
+			Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
 
 			if self.Mode == "PLAYING":
 				level=10
@@ -122,19 +136,13 @@ class StatusMediaListener:
 				level=20
 			else:
 				level=0
-				#Appname
-				AppDeviceID=10*self.ChromecastID+4
-				UpdateDevice(AppDeviceID,0,0)
-				#Volume
-				AppDeviceID=10*self.ChromecastID+2
-				UpdateDevice(AppDeviceID,0,0)
-			
+
 			UpdateDevice(DeviceID,level,level)
 
 		if self.Title != status.title:
 			self.Title = status.title
 			DeviceID=10*self.ChromecastID+3
-			Domoticz.Log("The title is changed to  "+self.Title)
+			Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
 			UpdateDevice(DeviceID,0,self.Title)
 
 class BasePlugin:
@@ -161,8 +169,10 @@ class BasePlugin:
 		self.Languague = Parameters["Mode4"]
 		self.ip=get_ip()
 		self.error=False
+		octet2=self.ip.split(".")
+		octet2=octet2[0]+"."+octet2[1]
 		try:
-			if Settings["WebUserName"] != "" and "127.0.0.*" not in Settings["WebLocalNetworks"] and self.ip not in Settings["WebLocalNetworks"]:
+			if Settings["WebUserName"] != "" and "127.0" not in Settings["WebLocalNetworks"] and octet2 not in Settings["WebLocalNetworks"]:
 				Domoticz.Error("You have set a password, but have not excluded your local ip. Please do so, then restart domoticz.")
 				self.error=True
 		except:
@@ -372,6 +382,11 @@ def createDevices(ConnectedChromecasts):
 			Domoticz.Log("Created 'App' device for chromecast "+Chromecast)
 			Domoticz.Device(Name="App name-"+Chromecast, Unit=x+4, TypeName="Selector Switch", Switchtype=18, Options=_plugin.AppOptions, Used=1).Create()
 			UpdateImage(x+4, 'ChromecastLogo')
+
+		UpdateDevice(x+1,0,0)
+		UpdateDevice(x+2,0,0)
+		UpdateDevice(x+3,0,"")
+		UpdateDevice(x+4,0,0)
 
 	Domoticz.Log("Devices check done")
 	return

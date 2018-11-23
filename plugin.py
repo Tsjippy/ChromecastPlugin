@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.5" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.6" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -33,6 +33,7 @@
         <param field="Mode2" label="Directory for message files" width="400px" required="true" default="/tmp/"/>
         <param field="Mode3" label="Port for filesharing" width="50px" required="true" default="8000"/>
         <param field="Mode4" label="Message language" width="50px" required="true" default="en-US"/>
+		<param field="Mode5" label="Domoticz url and port" width="200px" required="true" default="http://127.0.0.1:8080"/>
         <param field="Mode6" label="Debug" width="100px">
             <options>
                 <option label="True" value="Debug"/>
@@ -149,9 +150,6 @@ class StatusMediaListener:
 class BasePlugin:
 	enabled = False
 	def __init__(self):
-		self.url= "http://127.0.0.1:8080"
-		self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
-
 		self.StatusOptions=  {   "LevelActions"  : "|||||",
 		"LevelNames"    : "Off|Play|Pause|Stop",
 		"LevelOffHidden": "true",
@@ -168,6 +166,8 @@ class BasePlugin:
 		self.Filelocation=Parameters["Mode2"]
 		self.Port = int(Parameters["Mode3"])
 		self.Languague = Parameters["Mode4"]
+		self.url= Parameters["Mode5"]
+		self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
 		self.ip=get_ip()
 		self.error=False
 		octet2=self.ip.split(".")

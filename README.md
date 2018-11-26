@@ -19,7 +19,6 @@ git clone https://github.com/Tsjippy/ChromecastPlugin
 2) Install dependecies: 
 ```bash
 sudo pip3 install pychromecast -t /home/pi/domoticz/plugins/ChromecastPlugin
-sudo pip3 install mutagen -t /home/pi/domoticz/plugins/ChromecastPlugin
 ```
 3) Restart domoticz: 
 ```bash

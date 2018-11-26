@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="1.1.6" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="2.0.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -34,11 +34,10 @@
         <param field="Mode3" label="Port for filesharing" width="50px" required="true" default="8000"/>
         <param field="Mode4" label="Message language" width="50px" required="true" default="en-US"/>
 		<param field="Mode5" label="Domoticz url and port" width="200px" required="true" default="http://127.0.0.1:8080"/>
-        <param field="Mode6" label="Debug" width="100px">
+        <param field="Mode6" label="Adjust Volume" width="100px">
             <options>
-                <option label="True" value="Debug"/>
-                <option label="False" value="Normal" default="true" />
-                <option label="Logging" value="File"/>
+                <option label="True" value="True" default="true" />
+                <option label="False" value="False"/>
             </options>
         </param>
     </params>
@@ -58,7 +57,6 @@ import time
 import pychromecast
 from pychromecast.controllers.youtube import YouTubeController
 from multiprocessing import Process, Queue
-from mutagen.mp3 import MP3
 
 try:
 	import Domoticz
@@ -97,13 +95,10 @@ class StatusListener:
 				Level=40
 			elif str(self.Appname) == "Backdrop" or str(self.Appname) == "None":
 				Level=0
-				Domoticz.Log("Will set the domoitcz devices to off.")
+				Domoticz.Log("Will set the domoticz devices to off.")
 				#Control
 				AppDeviceID=10*self.ChromecastID+1
 				UpdateDevice(AppDeviceID,0,0)
-				#Volume
-				AppDeviceID=10*self.ChromecastID+2
-				UpdateDevice(AppDeviceID,2,0)
 				#Title
 				AppDeviceID=10*self.ChromecastID+3
 				UpdateDevice(AppDeviceID,0,"")
@@ -118,6 +113,35 @@ class StatusListener:
 			Domoticz.Log("Updated volume to "+str(Volume))
 			UpdateDevice(DeviceID,2,Volume)
 
+class ConnectionListener:
+	def __init__(self, cast):
+		self.cast = cast
+		self.name = cast.name
+		self.counter = 0
+
+	def new_connection_status(self, new_status):
+		global _plugin
+		# new_status.status will be one of the CONNECTION_STATUS_ constants defined in the
+		# socket_client module.
+		if new_status.status == "CONNECTED":
+			Domoticz.Status("Succesfully connected to "+self.name)
+			self.cast.set_volume(0.5)
+			Domoticz.Status("Volume is "+str(self.cast.status.volume_level))
+			_plugin.ConnectedChromecasts[self.name][3]=new_status.status
+		elif new_status.status == 'CONNECTING' and self.counter == 0:
+			Domoticz.Log("Trying to connect to "+self.name)
+		elif new_status.status == 'FAILED':
+			if self.counter == 0:
+				Domoticz.Log("Failed to connect to "+self.name)
+			elif self.counter == 10:
+				self.counter = -1
+			self.counter += 1
+		elif new_status.status == 'LOST':
+			Domoticz.Error("Connection with "+self.name+ " is lost.")
+			_plugin.ConnectedChromecasts[self.name][3]=new_status.status
+		else:
+			Domoticz.Error("status of "+self.name+" is changed to "+new_status)
+		
 class StatusMediaListener:
 	def __init__(self, name, cast):
 		self.name = name
@@ -166,7 +190,9 @@ class BasePlugin:
 		self.Filelocation=Parameters["Mode2"]
 		self.Port = int(Parameters["Mode3"])
 		self.Languague = Parameters["Mode4"]
-		self.url= Parameters["Mode5"]
+		self.url = Parameters["Mode5"]
+		if self.url == "":
+			self.url="http://127.0.0.1:8080"
 		self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
 		self.ip=get_ip()
 		self.error=False
@@ -183,21 +209,20 @@ class BasePlugin:
 			#Create temppath if it does not exist
 			if not os.path.isdir(self.Filelocation):
 				Domoticz.Status("Created folder "+self.Filelocation)
-				os.makedirs(self.Filelocation)
-
+				os.makedirs(self.Filelocation, mode=0o777)
+				
 			# Check if images are in database
 			Domoticz.Status("Checking if images are loaded")
 			if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
 
-			if Parameters["Mode6"]=="Debug":
-				DumpConfigToLog()
+			DumpConfigToLog()
 
 			Domoticz.Status("Starting up")
 
-			#ConnectedChromecasts[Chromecastname] has 3 values in the end: index, chromecast object, and variable IDX
+			#ConnectedChromecasts[Chromecastname] has 4 values in the end: index, chromecast object, variable IDX, and chromecast status
 			self.ConnectedChromecasts={}
 			for i, chromecastname in enumerate(Parameters["Mode1"].split(",")): 
-				self.ConnectedChromecasts[chromecastname.strip()]=[i,""]
+				self.ConnectedChromecasts[chromecastname.strip()]=[i,"","","disconnected"]
 
 			self.ConnectedChromecasts=ConnectChromeCast(self.ConnectedChromecasts)
 
@@ -216,7 +241,7 @@ class BasePlugin:
 				for chromecast in self.ConnectedChromecasts:
 					try:
 						variable=next(var for var in self.VariablesIDX if var["Name"]==chromecast)
-						self.ConnectedChromecasts[chromecast]+=[variable["idx"]]
+						self.ConnectedChromecasts[chromecast][2]=variable["idx"]
 					except StopIteration:
 						Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
 
@@ -229,15 +254,10 @@ class BasePlugin:
 	def onHeartbeat(self):
 		if self.error == False:
 			RecheckNeeded=False
-
 			for ChromecastName in self.ConnectedChromecasts:
-
 				#Check if chromecast is already connected
 				if self.ConnectedChromecasts[ChromecastName][1] == "":
 					RecheckNeeded=True
-				elif self.ConnectedChromecasts[ChromecastName][1].media_controller.status.player_state == "UNKNOWN":
-					DeviceID=10*self.ConnectedChromecasts[ChromecastName][0]+1
-					#UpdateDevice(DeviceID,0,0)
 
 				#Check if text needs to be spoken
 				try:
@@ -245,19 +265,66 @@ class BasePlugin:
 					if Text != "":
 						#Reset the variable to empty
 						requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
-						if self.ConnectedChromecasts[ChromecastName][1] != "":
+						if self.ConnectedChromecasts[ChromecastName][3] == "CONNECTED":
 							#Create mp3
 							os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+self.Languague+'" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o '+self.Filelocation+'/message.mp3')
-							Domoticz.Log('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
+							
+							Domoticz.Status('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
 							cc=self.ConnectedChromecasts[ChromecastName][1]
 							mc=cc.media_controller
+							
+
+							#Store YouTube session
+							if cc.status.display_name=="YouTube":
+								mc.pause()
+								while mc.status.player_state != 'PAUSED':
+									time.sleep(0.1)
+								currenttime=mc.status.current_time
+								videoid=mc.status.content_id
+								previousapp=True
+							else:
+								previousapp=False
+							
+							if Parameters["Mode6"]=="True":
+								previousvolume=int(cc.status.volume_level*100)
+								Domoticz.Status("Current volume is "+str(previousvolume))
+								cc.quit_app()
+								time.sleep(0.5)
+								Domoticz.Log("Maximizing volume")
+								cc.set_volume(1)
+							else:
+								cc.quit_app()
+							
 							#Play on chromecast
 							mc.play_media('http://'+str(self.ip)+':'+str(self.Port)+'/message.mp3', 'music/mp3')
-							time.sleep((MP3(self.Filelocation+'/message.mp3')).info.length)
-							cc.quit_app()
+							while mc.status.player_state != 'PLAYING' or cc.status.display_name != 'Default Media Receiver':
+								#Domoticz.Log("Sleeping while waiting for playing")
+								time.sleep(0.1)
+							while mc.status.player_state == 'PLAYING':
+								#Domoticz.Log("Sleeping while playing")
+								time.sleep(0.1)
+
 							Domoticz.Log("Message is played.")
+							
+							if Parameters["Mode6"]=="True" and previousvolume != 0 and previousvolume != 100:
+								#Reset Volume
+								Domoticz.Log("Restoring original volume of "+str(previousvolume))
+								cc.set_volume(previousvolume/100)
+							
+							#Restart Youtube session
+							if previousapp==True:
+								Domoticz.Status("Restarting video with id:"+str(videoid)+" on YouTube.")
+								uri=cc.uri
+								q = Queue()
+								p = Process(target=RestartYoutube, args=(q,uri,videoid,currenttime))
+								p.deamon=True
+								p.start()
+								Domoticz.Log(q.get())
+								p.terminate()
+							else:
+								cc.quit_app()
 						else:
-							Domoticz.Error("Cannot play '"+Text+"' on '"+ChromecastName+"' as the chromecast is not connected")
+							Domoticz.Error("Cannot play '"+Text+"' on '"+ChromecastName+"' as the chromecast is not connected.")
 				except Exception as e:
 					senderror(e)
 
@@ -284,30 +351,38 @@ class BasePlugin:
 		#Find the corresponding chromecast
 		Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
 
-		if self.ConnectedChromecasts[Chromecast][1] == "":
-			Domoticz.Error("Chromecast "+Chromecast+" is not connected!")
+		if self.ConnectedChromecasts[Chromecast][3] != "CONNECTED":
+			Domoticz.Error("Chromecast '"+Chromecast+"' is not connected, so I cannot issue a command to it. Reconnect '"+Chromecast+"' and try again.")
 		else:
-			cc=self.ConnectedChromecasts[Chromecast][1]
-			if Unit-10*ChromecastID == 1:
-				if Level == 10:
-					Domoticz.Log("Start playing on chromecast")
-					cc.media_controller.play()
-				elif Level == 20:
-					Domoticz.Log("Pausing chromecast")
-					cc.media_controller.pause()
-				elif Level == 30:
-					Domoticz.Log("Killing "+cc.app_display_name)
-					cc.quit_app()
+			try:
+				cc=self.ConnectedChromecasts[Chromecast][1]
+				if Unit-10*ChromecastID == 1:
+					if Level == 10:
+						Domoticz.Log("Start playing on chromecast")
+						cc.media_controller.play()
+					elif Level == 20:
+						Domoticz.Log("Pausing chromecast")
+						cc.media_controller.pause()
+					elif Level == 30:
+						Domoticz.Log("Killing "+cc.app_display_name)
+						cc.quit_app()
+					else:
+						Domoticz.Log("Level is "+Level+" What should I do with it?")
+				elif Unit-10*ChromecastID == 2:
+					vl = float(Level)/100
+					cc.set_volume(vl)
+				elif Unit-10*ChromecastID == 4:
+					if Level == 30:
+						Domoticz.Log("Starting Youtube on chromecast")
+						yt = YouTubeController()
+						cc.register_handler(yt)
+			except NotConnected:
+				Domoticz.Error(cc.name + " is not connected, reconnecting")
+			except Exception as e:
+				if str(e) == "Chromecast is connecting...":
+					pass
 				else:
-					Domoticz.Log("Level is "+Level+" What should I do with it?")
-			elif Unit-10*ChromecastID == 2:
-				vl = float(Level)/100
-				cc.set_volume(vl)
-			elif Unit-10*ChromecastID == 4:
-				if Level == 30:
-					Domoticz.Log("Starting Youtube on chromecast")
-					yt = YouTubeController()
-					cc.register_handler(yt)
+					senderror(e)
 
 global _plugin
 _plugin = BasePlugin()
@@ -384,10 +459,10 @@ def createDevices(ConnectedChromecasts):
 			Domoticz.Device(Name="App name-"+Chromecast, Unit=x+4, TypeName="Selector Switch", Switchtype=18, Options=_plugin.AppOptions, Used=1).Create()
 			UpdateImage(x+4, 'ChromecastLogo')
 
-		UpdateDevice(x+1,0,0)
-		UpdateDevice(x+2,0,0)
-		UpdateDevice(x+3,0,"")
-		UpdateDevice(x+4,2,0)
+		#UpdateDevice(x+1,0,0)
+		#UpdateDevice(x+2,2,0)
+		#UpdateDevice(x+3,0,"")
+		#UpdateDevice(x+4,0,0)
 
 	Domoticz.Log("Devices check done")
 	return
@@ -450,6 +525,7 @@ def ConnectChromeCast(ConnectedChromecasts):
 					cc=next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)
 					ConnectedChromecasts[ChromecastName][1]=cc
 					Domoticz.Status("Connected to " + ChromecastName)
+					ConnectedChromecasts[ChromecastName][3]="CONNECTED"
 					startListening(cc)
 				except StopIteration:
 					Domoticz.Status("Could not connect to "+ChromecastName)
@@ -467,6 +543,9 @@ def startListening(chromecast):
 
 	listenerMedia = StatusMediaListener(chromecast.name, chromecast)
 	chromecast.media_controller.register_status_listener(listenerMedia)
+	
+	connectioncast=ConnectionListener(chromecast)
+	chromecast.register_connection_listener(connectioncast)
 
 	Domoticz.Log("Done registering listeners for "+ chromecast.name)
 
@@ -509,3 +588,19 @@ def fileserver():
 
 	if debug==True:
 		ConnectChromeCast()
+
+		
+def RestartYoutube(q,uri,videoid,seektime):
+	ip=uri.split(":")[0]
+	port=int(uri.split(":")[1])
+	cc = pychromecast.Chromecast(ip,port)
+	mc=cc.media_controller
+	cc.wait()
+	yt = YouTubeController()
+	cc.register_handler(yt)
+	yt.play_video(videoid)
+	mc.block_until_active()
+	while mc.status.player_state != 'PLAYING':
+		time.sleep(0.1)
+	mc.seek(seektime)
+	q.put("Done")

@@ -27,6 +27,12 @@ sudo service domoticz.sh restart
 4) Add hardware, fill in the required field, including a comma seperated list of chromecast names (or just one)
 You can find the languague code relevant for you here: http://www.lingoes.net/en/translator/langcode.htm
 
+Known issues
+----------
+* After playing a custom mesagge, your previous playback does not resume. (except for YouTube)
+* Limited support for Netflix as they encrypt their data:
+** If you pause netflix from the web/an app, Domoticz doesn't know, if you pause it from Domoticz it works
+** Spotify cannot mad to resume because of this bug: https://github.com/balloob/pychromecast/issues/253
 
 Known bugs
 ----------

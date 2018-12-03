@@ -226,6 +226,7 @@ class BasePlugin:
 		
 		if self.error==False:
 			#Create temppath if it does not exist
+			Domoticz.Log(str(self.Filelocation))
 			if not os.path.isdir(self.Filelocation):
 				Domoticz.Status("Created folder "+self.Filelocation)
 				os.makedirs(self.Filelocation, mode=0o777)
@@ -251,21 +252,12 @@ class BasePlugin:
 				self.error=True
 		else:
 			# Check if devices need to be deleted
-			deleteDevices(len(self.ConnectedChromecasts))
+			self.deleteDevices()
 			
 			# Check if devices need to be created
 			createDevices(self.ConnectedChromecasts)
 
-			#Get variables
-			self.VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
-
-			#Retrieve the Domoticz IDX of the variables
-			for chromecast in self.ConnectedChromecasts:
-				try:
-					variable=next(var for var in self.VariablesIDX if var["Name"]==chromecast)
-					self.ConnectedChromecasts[chromecast][2]=variable["idx"]
-				except StopIteration:
-					Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
+			getVariables()
 
 			#Start FileServer
 			Domoticz.Log("Local ip address is "+self.ip)
@@ -488,6 +480,45 @@ class BasePlugin:
 			else:
 				senderror(e)
 
+	def deleteDevices(self):
+		#Check if there are more devices than needed
+		if len(self.ConnectedChromecasts) != len(Devices)/4:
+			VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
+			#Find the device id's
+			for x in range(int(len(Devices)/4)):
+				#Find the chromecast name in the device name
+				ChromecastName=(Devices[x*10+1].Name).split("-")
+				ChromecastName=ChromecastName[len(ChromecastName)-1]
+
+				#If the chromecast id does not match the device id, delete it
+				if not self.ConnectedChromecasts.get(ChromecastName):
+					#Delete user variable
+					idx=next(var for var in VariablesIDX if var["Name"]==ChromecastName)
+					result=requests.get(url=self.url+"/json.htm?type=command&param=deleteuservariable&idx="+idx["idx"]).json()["status"]
+					if result=="OK":
+						Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
+					else:
+						Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
+
+					#Delete devices
+					for i in range(1,5):
+						#Remove the device
+						id = x*10+i
+						Domoticz.Log("Deleting '"+Devices[id].Name+"' with id "+str(id))
+						Devices[id].Delete()
+				elif self.ConnectedChromecasts.get(ChromecastName)[0] != x:
+					id=self.ConnectedChromecasts[ChromecastName][0]
+					try:
+						Chromecast = next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0]==x)
+						self.ConnectedChromecasts[Chromecast][0] = id
+					except StopIteration:
+						pass
+					self.ConnectedChromecasts[ChromecastName][0] = x
+
+			for chromecast in self.ConnectedChromecasts:
+				Domoticz.Log(chromecast+" has id "+str(self.ConnectedChromecasts[chromecast][0]))
+
+
 global _plugin
 _plugin = BasePlugin()
 
@@ -533,28 +564,29 @@ def createDevices(Chromecasts):
 			if result=="OK":
 				Domoticz.Log("Created uservariable for '"+Chromecast+"'")
 			elif result=="Variable name already exists!":
-				Domoticz.Log("Variable for "+Chromecast+" already exists.")
+				#Domoticz.Log("Variable for "+Chromecast+" already exists.")
+				pass
 			else:
 				Domoticz.Error("Could not create '"+Chromecast+"', result was "+result)
 
 			x=Chromecasts[Chromecast][0]*10
 			if x+1 not in Devices:
-				Domoticz.Log("Created 'Status' device for chromecast "+Chromecast)
+				Domoticz.Log("Created 'Status' device for chromecast '"+Chromecast+"'")
 				Domoticz.Device(Name="Control-"+Chromecast, Unit=x+1, TypeName="Selector Switch", Switchtype=18, Options=_plugin.StatusOptions, Used=1).Create()
 				UpdateImage(x+1, 'ChromecastLogo')
 
 			if x+2 not in Devices:
-				Domoticz.Log("Created 'Volume' device for chromecast "+Chromecast)
+				Domoticz.Log("Created 'Volume' device for chromecast '"+Chromecast+"'")
 				Domoticz.Device(Name="Volume-"+Chromecast, Unit=x+2, Type=244, Subtype=73, Switchtype=7, Used=1).Create()
 				UpdateImage(x+2, 'ChromecastLogo')
 
 			if x+3 not in Devices:
-				Domoticz.Log("Created 'Title' device for chromecast "+Chromecast)
+				Domoticz.Log("Created 'Title' device for chromecast '"+Chromecast+"'")
 				Domoticz.Device(Name="Title-"+Chromecast, Unit=x+3, Type=243, Subtype=19, Used=1).Create()
 				UpdateImage(x+3, 'ChromecastLogo')
 
 			if x+4 not in Devices:
-				Domoticz.Log("Created 'App' device for chromecast "+Chromecast)
+				Domoticz.Log("Created 'App' device for chromecast '"+Chromecast+"'")
 				Domoticz.Device(Name="App name-"+Chromecast, Unit=x+4, TypeName="Selector Switch", Switchtype=18, Options=_plugin.AppOptions, Used=1).Create()
 				UpdateImage(x+4, 'ChromecastLogo')
 
@@ -563,28 +595,19 @@ def createDevices(Chromecasts):
 
 	Domoticz.Log("Devices check done")
 	return
-	
-def deleteDevices(count):
-	#Check if there are more devices than needed
-	if count < len(Devices)/4:
-		#Find the device id's
-		#for x in range(count, int(len(Devices)/4)):
-		#	for i in range(1,5):
-		#		#Remove the device
-		#		id = x*10+i
-		#		Domoticz.Log("Deleting '"+Devices[id].Name+"' with id "+str(id))
-		#		Devices[id].Delete()
-		
-		for x in xrange(len(Devices)):
-			Domoticz.Log("Deleting '"+Devices[x].Name+"' with id "+str(x))
-			Devices[x].Delete()
-		
-		for chromecast in self.ConnectedChromecasts:
-			result=requests.get(url=_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+self.ConnectedChromecasts[chromecast][2]).json()["status"]
-			if result=="OK":
-				Domoticz.Log("Removed uservariable for '"+chromecast+"'")
-			else:
-				Domoticz.Error("Could not remove '"+chromecast+"', result was "+result)
+
+def getVariables():
+	global _plugin
+	#Get variables
+	VariablesIDX=(requests.get(url=_plugin.url+"/json.htm?type=command&param=getuservariables").json())['result']
+
+	#Retrieve the Domoticz IDX of the variables
+	for chromecast in _plugin.ConnectedChromecasts:
+		try:
+			variable=next(var for var in VariablesIDX if var["Name"]==chromecast)
+			_plugin.ConnectedChromecasts[chromecast][2]=variable["idx"]
+		except StopIteration:
+			Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
 
 # Synchronise images to match parameter in hardware page
 def UpdateImage(Unit, Logo):

@@ -74,50 +74,49 @@ class StatusListener:
 	def __init__(self, cast):
 		self.name = cast.name
 		self.cast = cast
+		self.ChromecastId =_plugin.ConnectedChromecasts[self.name][0]
+		self.AppDeviceId = 10*self.ChromecastId+4
+		self.VolumeDeviceId = 10*self.ChromecastId+2
+		self.appLevels={}
+		self.appLevels["Backdrop"]=0
+		self.appLevels["None"]=0
+		self.appLevels["Spotify"]=10
+		self.appLevels["Netflix"]=20
+		self.appLevels["YouTube"]=30
+		self.appLevels["Default Media Receiver"]=40
+
 		if cast.status == None:
 			self.Appname = "None"
 			self.Volume = ""
 		else:
 			self.Appname = cast.status.display_name
+			UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
 			self.Volume = cast.status.volume_level
-		self.ChromecastID =_plugin.ConnectedChromecasts[self.name][0]
+			Volume = int(self.Volume*100)
+			UpdateDevice(self.VolumeDeviceId,2,Volume)
 
 	def new_cast_status(self, status):
-		#Domoticz.Status(str(status))
-
 		if self.Appname != str(status.display_name):
 			self.Appname = str(status.display_name)
-			DeviceID=10*self.ChromecastID+4
-			
 			Domoticz.Log("The app of '"+self.name+"' has changed to "+self.Appname)
 			
-			if str(self.Appname) == "Spotify":
-				Level=10
-			elif str(self.Appname) == "Netflix":
-				Level=20
-			elif str(self.Appname) == "YouTube":
-				Level=30
-			elif str(self.Appname) == "Default Media Receiver":
-				Level=40
-			elif str(self.Appname) == "Backdrop" or str(self.Appname) == "None":
-				Level=0
+			if self.appLevels[self.Appname] == 0:
 				Domoticz.Log("Will set the domoticz devices to off.")
 				#Control
-				AppDeviceID=10*self.ChromecastID+1
+				AppDeviceID=10*self.ChromecastId+1
 				UpdateDevice(AppDeviceID,0,0)
 				#Title
-				AppDeviceID=10*self.ChromecastID+3
+				AppDeviceID=10*self.ChromecastId+3
 				UpdateDevice(AppDeviceID,0,"")
 			else:
 				Level=40
-			UpdateDevice(DeviceID,Level,Level)
+			UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
 
 		if self.Volume != status.volume_level:
 			self.Volume = status.volume_level
-			DeviceID=10*self.ChromecastID+2
 			Volume = int(self.Volume*100)
 			Domoticz.Log("Updated volume to "+str(Volume))
-			UpdateDevice(DeviceID,2,Volume)
+			UpdateDevice(self.VolumeDeviceId,2,Volume)
 
 class ConnectionListener:
 	def __init__(self, cast):
@@ -160,35 +159,47 @@ class StatusMediaListener:
 	def __init__(self, cast):
 		self.name = cast.name
 		self.cast= cast
+		self.ChromecastId =_plugin.ConnectedChromecasts[self.name][0]
+		self.ModeDeviceId = 10*self.ChromecastId+1
+		self.TitleDeviceId = 10*self.ChromecastId+3
+		self.ModeLevels={}
+		self.ModeLevels["PLAYING"]=10
+		self.ModeLevels["PAUSED"]=20
+
 		if cast.status != None and cast.status.display_name != None and cast.status.display_name !='Backdrop':
-			self.Mode = cast.status.player_state
-			self.Title = cast.status.title
+			try:
+				self.Mode = cast.status.player_state
+				try:
+					level=self.ModeLevels[self.Mode]
+				except:
+					level=0
+				UpdateDevice(self.ModeDeviceId,level,level)
+
+				self.Title = cast.status.title
+				UpdateDevice(self.TitleDeviceId,0,self.Title)
+			except:
+				self.Mode = ""
+				self.Title = ""
 		else:
 			self.Mode = ""
 			self.Title = ""
-			
-		self.ChromecastID =_plugin.ConnectedChromecasts[self.name][0]
+
 
 	def new_media_status(self, status):
 		if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
 			self.Mode = status.player_state
-			DeviceID=10*self.ChromecastID+1
 			Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
 
-			if self.Mode == "PLAYING":
-				level=10
-			elif self.Mode == "PAUSED":
-				level=20
-			else:
+			try:
+				level=self.ModeLevels[self.Mode]
+			except:
 				level=0
-
-			UpdateDevice(DeviceID,level,level)
+			UpdateDevice(self.ModeDeviceId,level,level)
 
 		if self.Title != status.title:
 			self.Title = status.title
-			DeviceID=10*self.ChromecastID+3
 			Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
-			UpdateDevice(DeviceID,0,self.Title)
+			UpdateDevice(self.TitleDeviceId,0,self.Title)
 
 class BasePlugin:
 	enabled = False
@@ -226,7 +237,6 @@ class BasePlugin:
 		
 		if self.error==False:
 			#Create temppath if it does not exist
-			Domoticz.Log(str(self.Filelocation))
 			if not os.path.isdir(self.Filelocation):
 				Domoticz.Status("Created folder "+self.Filelocation)
 				os.makedirs(self.Filelocation, mode=0o777)
@@ -243,8 +253,6 @@ class BasePlugin:
 		self.ConnectedChromecasts={}
 		for i, chromecastname in enumerate(Parameters["Mode1"].split(",")): 
 			self.ConnectedChromecasts[chromecastname.strip()]=[i,"","","disconnected",0]
-
-		self.ConnectChromeCast()
 		
 		if Settings["AcceptNewHardware"] != "1":
 			if len(Devices) != len(self.ConnectedChromecasts)*4:
@@ -252,7 +260,7 @@ class BasePlugin:
 				self.error=True
 		else:
 			# Check if devices need to be deleted
-			self.deleteDevices()
+			self.updateDevices()
 			
 			# Check if devices need to be created
 			createDevices(self.ConnectedChromecasts)
@@ -262,6 +270,9 @@ class BasePlugin:
 			#Start FileServer
 			Domoticz.Log("Local ip address is "+self.ip)
 			self.fileserver()
+
+
+		self.ConnectChromeCast()
 
 	def onHeartbeat(self):
 		if self.error == False:
@@ -359,20 +370,20 @@ class BasePlugin:
 
 	def onCommand(self, Unit, Command, Level, Hue):
 		#get first number of the Unit
-		if len(str(Unit))==1:
-			ChromecastID=0
+		if len(Unit) == 1:
+			ChromecastId=0
 		else:
-			ChromecastID=int(str(Unit)[:1])
+			ChromecastId=int(str(Unit)[-2])
 
 		#Find the corresponding chromecast
-		Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastID)
+		Chromecast=next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0] == ChromecastId)
 
 		if self.ConnectedChromecasts[Chromecast][3] != "CONNECTED":
 			Domoticz.Error("Chromecast '"+Chromecast+"' is not connected, so I cannot issue a command to it. Reconnect '"+Chromecast+"' and try again.")
 		else:
 			try:
 				cc=self.ConnectedChromecasts[Chromecast][1]
-				if Unit-10*ChromecastID == 1:
+				if Unit % 10 == 1:
 					if Level == 10:
 						Domoticz.Log("Start playing on chromecast")
 						cc.media_controller.play()
@@ -384,10 +395,10 @@ class BasePlugin:
 						cc.quit_app()
 					else:
 						Domoticz.Log("Level is "+Level+" What should I do with it?")
-				elif Unit-10*ChromecastID == 2:
+				elif Unit % 10 == 2:
 					vl = float(Level)/100
 					cc.set_volume(vl)
-				elif Unit-10*ChromecastID == 4:
+				elif Unit % 10 == 4:
 					if Level == 30:
 						Domoticz.Log("Starting Youtube on chromecast")
 						yt = YouTubeController()
@@ -480,43 +491,51 @@ class BasePlugin:
 			else:
 				senderror(e)
 
-	def deleteDevices(self):
-		#Check if there are more devices than needed
-		if len(self.ConnectedChromecasts) != len(Devices)/4:
-			VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
-			#Find the device id's
-			for x in range(int(len(Devices)/4)):
-				#Find the chromecast name in the device name
-				ChromecastName=(Devices[x*10+1].Name).split("-")
-				ChromecastName=ChromecastName[len(ChromecastName)-1]
+	def updateDevices(self):
+		VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
+		#Find the device id's
+		DeviceList=[]
 
-				#If the chromecast id does not match the device id, delete it
-				if not self.ConnectedChromecasts.get(ChromecastName):
-					#Delete user variable
-					idx=next(var for var in VariablesIDX if var["Name"]==ChromecastName)
-					result=requests.get(url=self.url+"/json.htm?type=command&param=deleteuservariable&idx="+idx["idx"]).json()["status"]
-					if result=="OK":
-						Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
-					else:
-						Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
+		for deviceid in Devices:
+			if deviceid % 10 == 1:
+				DeviceList+=[deviceid]
 
-					#Delete devices
-					for i in range(1,5):
-						#Remove the device
-						id = x*10+i
-						Domoticz.Log("Deleting '"+Devices[id].Name+"' with id "+str(id))
-						Devices[id].Delete()
-				elif self.ConnectedChromecasts.get(ChromecastName)[0] != x:
-					id=self.ConnectedChromecasts[ChromecastName][0]
-					try:
-						Chromecast = next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0]==x)
-						self.ConnectedChromecasts[Chromecast][0] = id
-					except StopIteration:
-						pass
-					self.ConnectedChromecasts[ChromecastName][0] = x
+		for deviceid in DeviceList:
+			if len(str(deviceid)) == 1:
+				ChromecastId=0
+			else:
+				ChromecastId=int(str(deviceid)[-2])
 
-			for chromecast in self.ConnectedChromecasts:
-				Domoticz.Log(chromecast+" has id "+str(self.ConnectedChromecasts[chromecast][0]))
+			#Find the chromecast name in the device name
+			ChromecastName = ""
+			for Name in self.ConnectedChromecasts:
+				if Name in Devices[deviceid].Name:
+					ChromecastName = Name
+
+			#Referred chromecast does no longer exist
+			if ChromecastName == "":
+				ChromecastName = Devices[deviceid].Name.split("-")[-1]
+				idx=next(var for var in VariablesIDX if var["Name"]==ChromecastName)
+				result=requests.get(url=self.url+"/json.htm?type=command&param=deleteuservariable&idx="+idx["idx"]).json()["status"]
+				if result=="OK":
+					Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
+				else:
+					Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
+
+				#Delete devices
+				for i in range(4):
+					x=deviceid+i
+					Domoticz.Log("Deleting '"+Devices[x].Name+"' with id "+str(x))
+					Devices[x].Delete()
+			elif self.ConnectedChromecasts.get(ChromecastName)[0] != ChromecastId:
+				currentid=self.ConnectedChromecasts[ChromecastName][0]
+				#Check if there is already a chromecast with this id
+				try:
+					Chromecast = next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0]==ChromecastId)
+					self.ConnectedChromecasts[Chromecast][0] = currentid
+				except StopIteration:
+					pass
+				self.ConnectedChromecasts[ChromecastName][0] = ChromecastId
 
 
 global _plugin
@@ -677,4 +696,3 @@ def ScanForChromecasts(q,ConnectedChromecasts):
 			Chromecast.disconnect()
 
 	q.put(Recheck)
-

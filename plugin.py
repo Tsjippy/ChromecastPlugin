@@ -126,64 +126,72 @@ class ConnectionListener:
 
 	def new_connection_status(self, new_status):
 		global _plugin
+		# new_status.status will be one of the CONNECTION_STATUS_ constants defined in the
+		# socket_client module.
 		if new_status.status == "CONNECTED":
+			Domoticz.Status("Succesfully connected to "+self.name)
+			self.cast.set_volume(0.5)
+			Domoticz.Status("Volume is "+str(self.cast.status.volume_level))
 			_plugin.ConnectedChromecasts[self.name][3]=new_status.status
-			Domoticz.Status("Succesfully connected to '"+self.name+"'")
 		elif new_status.status == 'CONNECTING' and self.counter == 0:
-			Domoticz.Log("Trying to connect to '"+self.name+"'")
+			Domoticz.Log("Trying to connect to "+self.name)
 		elif new_status.status == 'FAILED':
 			if self.counter == 0:
-				Domoticz.Log("Failed to connect to '"+self.name+"'")
+				Domoticz.Log("Failed to connect to "+self.name)
 			elif self.counter == 10:
 				self.counter = -1
 			self.counter += 1
-
-			#Check if we need to disconnect the chromecast or should keep retrying
-			currenttime=datetime.datetime.now()
-			timesincelostconnection=_plugin.ConnectedChromecasts[self.name][4]
-			delta=(currenttime-timesincelostconnection).days
-			if delta >= 1:
-				_plugin.ConnectedChromecasts[self.name][1]=""
-				_plugin.ConnectedChromecasts[self.name][4]=0
-				Domoticz.Error("Disconnected "+self.name+" as the connection is lost for more than 1 day.")
-				self.cast.disconnect()
 		elif new_status.status == 'LOST':
-			Domoticz.Error("Connection with '"+self.name+ "' is lost.")
+			Domoticz.Error("Connection with "+self.name+ " is lost.")
 			_plugin.ConnectedChromecasts[self.name][3]=new_status.status
-			#Store the current time
-			_plugin.ConnectedChromecasts[self.name][4]=datetime.datetime.now()
 		else:
-			Domoticz.Error("status of '"+self.name+"' is changed to "+new_status)
+			Domoticz.Error("status of "+self.name+" is changed to "+new_status)
 		
 class StatusMediaListener:
 	def __init__(self, cast):
 		self.name = cast.name
 		self.cast= cast
+		self.Mode=""
+		self.Title=""
 		self.ChromecastId =_plugin.ConnectedChromecasts[self.name][0]
 		self.ModeDeviceId = 10*self.ChromecastId+1
 		self.TitleDeviceId = 10*self.ChromecastId+3
 		self.ModeLevels={}
-		self.ModeLevels["PLAYING"]=10
-		self.ModeLevels["PAUSED"]=20
+		self.ModeLevels["PLAYING"] = 10
+		self.ModeLevels["PAUSED"] = 20
 
 		if cast.status != None and cast.status.display_name != None and cast.status.display_name !='Backdrop':
+			self.Title=""
+			self.Mode = self.cast.media_controller.status.player_state
 			try:
-				self.Mode = cast.status.player_state
-				try:
-					level=self.ModeLevels[self.Mode]
-				except:
-					level=0
-				UpdateDevice(self.ModeDeviceId,level,level)
-
-				self.Title = cast.status.title
-				UpdateDevice(self.TitleDeviceId,0,self.Title)
+				level=self.ModeLevels[self.Mode]
 			except:
-				self.Mode = ""
-				self.Title = ""
-		else:
-			self.Mode = ""
-			self.Title = ""
+				level=0
+			UpdateDevice(self.ModeDeviceId,level,level)
 
+			self.Title = self.cast.media_controller.status.title
+			UpdateDevice(self.TitleDeviceId,0,self.Title)
+
+	def new_media_status(self, status):
+		if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
+			self.Mode = status.player_state
+			DeviceID=10*self.ChromecastId+1
+			Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
+
+			if self.Mode == "PLAYING":
+				level=10
+			elif self.Mode == "PAUSED":
+				level=20
+			else:
+				level=0
+
+			UpdateDevice(DeviceID,level,level)
+
+		if self.Title != status.title:
+			self.Title = status.title
+			DeviceID=10*self.ChromecastId+3
+			Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
+			UpdateDevice(DeviceID,0,self.Title)
 
 	def new_media_status(self, status):
 		if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
@@ -251,8 +259,9 @@ class BasePlugin:
 
 		#ConnectedChromecasts[Chromecastname] has 5 values in the end: index, chromecast object, variable IDX, chromecast status and hours since last connection
 		self.ConnectedChromecasts={}
-		for i, chromecastname in enumerate(Parameters["Mode1"].split(",")): 
-			self.ConnectedChromecasts[chromecastname.strip()]=[i,"","","disconnected",0]
+		for i, chromecastname in enumerate(Parameters["Mode1"].split(",")):
+			if chromecastname != "":
+				self.ConnectedChromecasts[chromecastname.strip()]=[i,"","","disconnected",0]
 		
 		if Settings["AcceptNewHardware"] != "1":
 			if len(Devices) != len(self.ConnectedChromecasts)*4:
@@ -370,7 +379,7 @@ class BasePlugin:
 
 	def onCommand(self, Unit, Command, Level, Hue):
 		#get first number of the Unit
-		if len(Unit) == 1:
+		if len(str(Unit)) == 1:
 			ChromecastId=0
 		else:
 			ChromecastId=int(str(Unit)[-2])
@@ -515,12 +524,17 @@ class BasePlugin:
 			#Referred chromecast does no longer exist
 			if ChromecastName == "":
 				ChromecastName = Devices[deviceid].Name.split("-")[-1]
-				idx=next(var for var in VariablesIDX if var["Name"]==ChromecastName)
-				result=requests.get(url=self.url+"/json.htm?type=command&param=deleteuservariable&idx="+idx["idx"]).json()["status"]
-				if result=="OK":
-					Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
-				else:
-					Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
+				try:
+					idx=next(var for var in VariablesIDX if var["Name"]==ChromecastName)
+					result=requests.get(url=self.url+"/json.htm?type=command&param=deleteuservariable&idx="+idx["idx"]).json()["status"]
+					if result=="OK":
+						Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
+					else:
+						Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
+				except StopIteration:
+					pass
+				except Exception as e:
+					senderror(e)
 
 				#Delete devices
 				for i in range(4):
@@ -535,6 +549,8 @@ class BasePlugin:
 					self.ConnectedChromecasts[Chromecast][0] = currentid
 				except StopIteration:
 					pass
+				except Exception as e:
+					senderror(e)
 				self.ConnectedChromecasts[ChromecastName][0] = ChromecastId
 
 
@@ -548,6 +564,10 @@ def onStart():
 def onHeartbeat():
 	global _plugin
 	_plugin.onHeartbeat()
+	
+def onCommand(Unit, Command, Level, Hue):
+	global _plugin
+	_plugin.onCommand(Unit, Command, Level, Hue)
 
 def onStop():
 	global _plugin

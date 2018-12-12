@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.2" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -237,7 +237,7 @@ class BasePlugin:
 		octet2=self.ip.split(".")
 		octet2=octet2[0]+"."+octet2[1]
 		try:
-			if Settings["WebUserName"] != "" and "127.0" not in Settings["WebLocalNetworks"] and octet2 not in Settings["WebLocalNetworks"]:
+			if Settings["WebUserName"] != "" and Settings["WebUserName"] != str(0) and "127.0" not in Settings["WebLocalNetworks"] and octet2 not in Settings["WebLocalNetworks"]:
 				Domoticz.Error("You have set a password, but have not excluded your local ip. Please do so, then restart domoticz.")
 				self.error=True
 		except:
@@ -412,8 +412,6 @@ class BasePlugin:
 						Domoticz.Log("Starting Youtube on chromecast")
 						yt = YouTubeController()
 						cc.register_handler(yt)
-			except NotConnected:
-				Domoticz.Error(cc.name + " is not connected, reconnecting")
 			except Exception as e:
 				if str(e) == "Chromecast is connecting...":
 					pass

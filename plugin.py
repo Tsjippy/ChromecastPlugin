@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.2" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -237,7 +237,7 @@ class BasePlugin:
 		octet2=self.ip.split(".")
 		octet2=octet2[0]+"."+octet2[1]
 		try:
-			if Settings["WebUserName"] != "" and "127.0" not in Settings["WebLocalNetworks"] and octet2 not in Settings["WebLocalNetworks"]:
+			if Settings["WebUserName"] != "" and Settings["WebUserName"] != str(0) and "127.0" not in Settings["WebLocalNetworks"] and octet2 not in Settings["WebLocalNetworks"]:
 				Domoticz.Error("You have set a password, but have not excluded your local ip. Please do so, then restart domoticz.")
 				self.error=True
 		except:
@@ -302,6 +302,7 @@ class BasePlugin:
 					if Text != "":
 						#Reset the variable to empty
 						requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
+						
 						if self.ConnectedChromecasts[ChromecastName][3] == "CONNECTED":
 							#Create mp3
 							os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+self.Languague+'" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o '+self.Filelocation+'/message.mp3')
@@ -412,8 +413,7 @@ class BasePlugin:
 						Domoticz.Log("Starting Youtube on chromecast")
 						yt = YouTubeController()
 						cc.register_handler(yt)
-			except NotConnected:
-				Domoticz.Error(cc.name + " is not connected, reconnecting")
+				elif Unit % 10 == 5:
 			except Exception as e:
 				if str(e) == "Chromecast is connecting...":
 					pass
@@ -537,7 +537,7 @@ class BasePlugin:
 					senderror(e)
 
 				#Delete devices
-				for i in range(4):
+				for i in range(5):
 					x=deviceid+i
 					Domoticz.Log("Deleting '"+Devices[x].Name+"' with id "+str(x))
 					Devices[x].Delete()
@@ -628,6 +628,11 @@ def createDevices(Chromecasts):
 				Domoticz.Log("Created 'App' device for chromecast '"+Chromecast+"'")
 				Domoticz.Device(Name="App name-"+Chromecast, Unit=x+4, TypeName="Selector Switch", Switchtype=18, Options=_plugin.AppOptions, Used=1).Create()
 				UpdateImage(x+4, 'ChromecastLogo')
+
+			if x+5 not in Devices:
+				Domoticz.Log("Created 'Message' device for chromecast '"+Chromecast+"'")
+				Domoticz.Device(Name="Message-"+Chromecast, Unit=x+5, Type=243, Subtype=19, Used=1).Create()
+				UpdateImage(x+5, 'ChromecastLogo')
 
 		except Exception as e:
 			senderror(e)

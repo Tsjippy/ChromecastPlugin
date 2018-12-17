@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.3" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.4" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -499,57 +499,66 @@ class BasePlugin:
 				senderror(e)
 
 	def updateDevices(self):
-		VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
-		#Find the device id's
-		DeviceList=[]
+		try:
+			VariablesIDX=(requests.get(url=self.url+"/json.htm?type=command&param=getuservariables").json())['result']
+		except:
+			Domoticz.Error("Could not get all variables. Used this url: "+self.url+"/json.htm?type=command&param=getuservariables")
+			self.error=True
 
-		for deviceid in Devices:
-			if deviceid % 10 == 1:
-				DeviceList+=[deviceid]
+		try:
+			#Find the device id's
+			DeviceList=[]
 
-		for deviceid in DeviceList:
-			if len(str(deviceid)) == 1:
-				ChromecastId=0
-			else:
-				ChromecastId=int(str(deviceid)[-2])
+			for deviceid in Devices:
+				if deviceid % 10 == 1:
+					DeviceList+=[deviceid]
 
-			#Find the chromecast name in the device name
-			ChromecastName = ""
-			for Name in self.ConnectedChromecasts:
-				if Name in Devices[deviceid].Name:
-					ChromecastName = Name
+			for deviceid in DeviceList:
+				if len(str(deviceid)) == 1:
+					ChromecastId=0
+				else:
+					ChromecastId=int(str(deviceid)[-2])
 
-			#Referred chromecast does no longer exist
-			if ChromecastName == "":
-				ChromecastName = Devices[deviceid].Name.split("-")[-1]
-				try:
-					idx=next(var for var in VariablesIDX if var["Name"]==ChromecastName)
-					result=requests.get(url=self.url+"/json.htm?type=command&param=deleteuservariable&idx="+idx["idx"]).json()["status"]
-					if result=="OK":
-						Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
-					else:
-						Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
-				except StopIteration:
-					pass
-				except Exception as e:
-					senderror(e)
+				#Find the chromecast name in the device name
+				ChromecastName = ""
+				for Name in self.ConnectedChromecasts:
+					if Name in Devices[deviceid].Name:
+						ChromecastName = Name
 
-				#Delete devices
-				for i in range(4):
-					x=deviceid+i
-					Domoticz.Log("Deleting '"+Devices[x].Name+"' with id "+str(x))
-					Devices[x].Delete()
-			elif self.ConnectedChromecasts.get(ChromecastName)[0] != ChromecastId:
-				currentid=self.ConnectedChromecasts[ChromecastName][0]
-				#Check if there is already a chromecast with this id
-				try:
-					Chromecast = next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0]==ChromecastId)
-					self.ConnectedChromecasts[Chromecast][0] = currentid
-				except StopIteration:
-					pass
-				except Exception as e:
-					senderror(e)
-				self.ConnectedChromecasts[ChromecastName][0] = ChromecastId
+				#Referred chromecast does no longer exist
+				if ChromecastName == "":
+					ChromecastName = Devices[deviceid].Name.split("-")[-1]
+					try:
+						idx=next(var for var in VariablesIDX if var["Name"]==ChromecastName)
+						result=requests.get(url=self.url+"/json.htm?type=command&param=deleteuservariable&idx="+idx["idx"]).json()["status"]
+						if result=="OK":
+							Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
+						else:
+							Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
+					except StopIteration:
+						pass
+					except Exception as e:
+						senderror(e)
+
+					#Delete devices
+					for i in range(4):
+						x=deviceid+i
+						Domoticz.Log("Deleting '"+Devices[x].Name+"' with id "+str(x))
+						Devices[x].Delete()
+				elif self.ConnectedChromecasts.get(ChromecastName)[0] != ChromecastId:
+					currentid=self.ConnectedChromecasts[ChromecastName][0]
+					#Check if there is already a chromecast with this id
+					try:
+						Chromecast = next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast][0]==ChromecastId)
+						self.ConnectedChromecasts[Chromecast][0] = currentid
+					except StopIteration:
+						pass
+					except Exception as e:
+						senderror(e)
+					self.ConnectedChromecasts[ChromecastName][0] = ChromecastId
+		except Exception as e:
+			senderror(e)
+		
 
 
 global _plugin

@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.6" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.7" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -608,7 +608,7 @@ def createDevices(Chromecasts):
 		Domoticz.Log("Checking devices for "+Chromecast)
 		#Check if variable needs to be created
 		try:
-			result=requests.get(url=_plugin.url+"/json.htm?type=command&param=saveuservariable&vname="+Chromecast+"&vtype=2&vvalue=").json()["status"]
+			result=requests.get(_plugin.url+"/json.htm?type=command&param=saveuservariable&vname="+Chromecast+"&vtype=2&vvalue=").json()["status"]
 
 			if result=="OK":
 				Domoticz.Log("Created uservariable for '"+Chromecast+"'")
@@ -616,7 +616,7 @@ def createDevices(Chromecasts):
 				#Domoticz.Log("Variable for "+Chromecast+" already exists.")
 				pass
 			else:
-				Domoticz.Error("Could not create '"+Chromecast+"', result was "+result)
+				Domoticz.Error("Could not create '"+Chromecast+"', result was "+result+". Url used is "+_plugin.url+"/json.htm?type=command&param=saveuservariable&vname="+Chromecast+"&vtype=2&vvalue=")
 
 			x=Chromecasts[Chromecast][0]*10
 			if x+1 not in Devices:

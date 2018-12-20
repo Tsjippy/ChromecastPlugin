@@ -40,3 +40,5 @@ Known bugs
 ----------
 * Does not work with the current stable of domoticz, you need the latest beta
 * You can't just install pychromecast like this: sudo pip3 install pychromecast. It has to be installed in the plugin folder.
+* In order to delete the hardware you need to disable it, then restart domoticz, then delete it.
+* In order to change any hardware settings you have to disable the hardware, restart domoticz, change the hardware, then re-enable it.

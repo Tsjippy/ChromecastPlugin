@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.7" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.8" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -646,17 +646,21 @@ def createDevices(Chromecasts):
 	return
 
 def getVariables():
-	global _plugin
-	#Get variables
-	VariablesIDX=(requests.get(url=_plugin.url+"/json.htm?type=command&param=getuservariables").json())['result']
+	try:
+		global _plugin
+		#Get variables
+		VariablesIDX=(requests.get(_plugin.url+"/json.htm?type=command&param=getuservariables").json())['result']
 
-	#Retrieve the Domoticz IDX of the variables
-	for chromecast in _plugin.ConnectedChromecasts:
-		try:
-			variable=next(var for var in VariablesIDX if var["Name"]==chromecast)
-			_plugin.ConnectedChromecasts[chromecast][2]=variable["idx"]
-		except StopIteration:
-			Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist")
+		#Retrieve the Domoticz IDX of the variables
+		for chromecast in _plugin.ConnectedChromecasts:
+			try:
+				variable=next(var for var in VariablesIDX if var["Name"]==chromecast)
+				_plugin.ConnectedChromecasts[chromecast][2]=variable["idx"]
+				Domoticz.Log("Found uservariable for "+chromecast)
+			except:
+				Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist, please create it.")
+	except Exception as e:
+		senderror(e)
 
 # Synchronise images to match parameter in hardware page
 def UpdateImage(Unit, Logo):

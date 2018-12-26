@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.0.9" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -96,27 +96,30 @@ class StatusListener:
 			UpdateDevice(self.VolumeDeviceId,2,Volume)
 
 	def new_cast_status(self, status):
-		if self.Appname != str(status.display_name):
-			self.Appname = str(status.display_name)
-			Domoticz.Log("The app of '"+self.name+"' has changed to "+self.Appname)
-			
-			if self.appLevels[self.Appname] == 0:
-				Domoticz.Log("Will set the domoticz devices to off.")
-				#Control
-				AppDeviceID=10*self.ChromecastId+1
-				UpdateDevice(AppDeviceID,0,0)
-				#Title
-				AppDeviceID=10*self.ChromecastId+3
-				UpdateDevice(AppDeviceID,0,"")
-			else:
-				Level=40
-			UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
+		try:
+			if self.Appname != str(status.display_name):
+				self.Appname = str(status.display_name)
+				Domoticz.Log("The app of '"+self.name+"' has changed to "+self.Appname)
+				
+				if self.appLevels[self.Appname] == 0:
+					Domoticz.Log("Will set the domoticz devices to off.")
+					#Control
+					AppDeviceID=10*self.ChromecastId+1
+					UpdateDevice(AppDeviceID,0,0)
+					#Title
+					AppDeviceID=10*self.ChromecastId+3
+					UpdateDevice(AppDeviceID,0,"")
+				else:
+					Level=40
+				UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
 
-		if self.Volume != status.volume_level:
-			self.Volume = status.volume_level
-			Volume = int(self.Volume*100)
-			Domoticz.Log("Updated volume to "+str(Volume))
-			UpdateDevice(self.VolumeDeviceId,2,Volume)
+			if self.Volume != status.volume_level:
+				self.Volume = status.volume_level
+				Volume = int(self.Volume*100)
+				Domoticz.Log("Updated volume to "+str(Volume))
+				UpdateDevice(self.VolumeDeviceId,2,Volume)
+		except Exception as e:
+			senderror(e)
 
 class ConnectionListener:
 	def __init__(self, cast):
@@ -125,27 +128,32 @@ class ConnectionListener:
 		self.counter = 0
 
 	def new_connection_status(self, new_status):
-		global _plugin
-		# new_status.status will be one of the CONNECTION_STATUS_ constants defined in the
-		# socket_client module.
-		if new_status.status == "CONNECTED":
-			Domoticz.Status("Succesfully connected to "+self.name)
-			self.cast.set_volume(0.5)
-			Domoticz.Status("Volume is "+str(self.cast.status.volume_level))
-			_plugin.ConnectedChromecasts[self.name][3]=new_status.status
-		elif new_status.status == 'CONNECTING' and self.counter == 0:
-			Domoticz.Log("Trying to connect to "+self.name)
-		elif new_status.status == 'FAILED':
-			if self.counter == 0:
-				Domoticz.Log("Failed to connect to "+self.name)
-			elif self.counter == 10:
-				self.counter = -1
-			self.counter += 1
-		elif new_status.status == 'LOST':
-			Domoticz.Error("Connection with "+self.name+ " is lost.")
-			_plugin.ConnectedChromecasts[self.name][3]=new_status.status
-		else:
-			Domoticz.Error("status of "+self.name+" is changed to "+new_status)
+		try:
+			global _plugin
+			# new_status.status will be one of the CONNECTION_STATUS_ constants defined in the
+			# socket_client module.
+			if new_status.status == "CONNECTED":
+				Domoticz.Status("Succesfully connected to "+self.name)
+				self.cast.set_volume(0.5)
+				Domoticz.Status("Volume is "+str(self.cast.status.volume_level))
+				_plugin.ConnectedChromecasts[self.name][3]=new_status.status
+			elif new_status.status == 'CONNECTING' and self.counter == 0:
+				Domoticz.Log("Trying to connect to "+self.name)
+			elif new_status.status == 'FAILED':
+				if self.counter == 0:
+					Domoticz.Log("Failed to connect to "+self.name)
+				elif self.counter == 10:
+					self.cast.disconnect()
+					Domoticz.Status("Disconnecting '"+self.name+"' as reconnecting did not succeed for 10 times.")
+					self.counter = -1
+				self.counter += 1
+			elif new_status.status == 'LOST':
+				Domoticz.Error("Connection with "+self.name+ " is lost.")
+				_plugin.ConnectedChromecasts[self.name][3]=new_status.status
+			else:
+				Domoticz.Error("status of "+self.name+" is changed to "+new_status)
+		except Exception as e:
+			senderror(e)
 		
 class StatusMediaListener:
 	def __init__(self, cast):
@@ -173,41 +181,47 @@ class StatusMediaListener:
 			UpdateDevice(self.TitleDeviceId,0,self.Title)
 
 	def new_media_status(self, status):
-		if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
-			self.Mode = status.player_state
-			DeviceID=10*self.ChromecastId+1
-			Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
+		try:
+			if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
+				self.Mode = status.player_state
+				DeviceID=10*self.ChromecastId+1
+				Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
 
-			if self.Mode == "PLAYING":
-				level=10
-			elif self.Mode == "PAUSED":
-				level=20
-			else:
-				level=0
+				if self.Mode == "PLAYING":
+					level=10
+				elif self.Mode == "PAUSED":
+					level=20
+				else:
+					level=0
 
-			UpdateDevice(DeviceID,level,level)
+				UpdateDevice(DeviceID,level,level)
 
-		if self.Title != status.title:
-			self.Title = status.title
-			DeviceID=10*self.ChromecastId+3
-			Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
-			UpdateDevice(DeviceID,0,self.Title)
+			if self.Title != status.title:
+				self.Title = status.title
+				DeviceID=10*self.ChromecastId+3
+				Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
+				UpdateDevice(DeviceID,0,self.Title)
+		except Exception as e:
+			senderror(e)
 
 	def new_media_status(self, status):
-		if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
-			self.Mode = status.player_state
-			Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
+		try:
+			if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
+				self.Mode = status.player_state
+				Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
 
-			try:
-				level=self.ModeLevels[self.Mode]
-			except:
-				level=0
-			UpdateDevice(self.ModeDeviceId,level,level)
+				try:
+					level=self.ModeLevels[self.Mode]
+				except:
+					level=0
+				UpdateDevice(self.ModeDeviceId,level,level)
 
-		if self.Title != status.title:
-			self.Title = status.title
-			Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
-			UpdateDevice(self.TitleDeviceId,0,self.Title)
+			if self.Title != status.title:
+				self.Title = status.title
+				Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
+				UpdateDevice(self.TitleDeviceId,0,self.Title)
+		except Exception as e:
+			senderror(e)
 
 class BasePlugin:
 	enabled = False
@@ -225,17 +239,21 @@ class BasePlugin:
 		}
 
 	def onStart(self):
-		self.Filelocation=Parameters["Mode2"]
-		self.Port = int(Parameters["Mode3"])
-		self.Languague = Parameters["Mode4"]
-		self.url = Parameters["Mode5"]
-		if self.url == "":
-			self.url="http://127.0.0.1:8080"
-		self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
-		self.ip=get_ip()
-		self.error=False
-		octet2=self.ip.split(".")
-		octet2=octet2[0]+"."+octet2[1]
+		try:
+			self.Filelocation=Parameters["Mode2"]
+			self.Port = int(Parameters["Mode3"])
+			self.Languague = Parameters["Mode4"]
+			self.url = Parameters["Mode5"]
+			if self.url == "":
+				self.url="http://127.0.0.1:8080"
+			self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
+			self.ip=get_ip()
+			self.error=False
+			octet2=self.ip.split(".")
+			octet2=octet2[0]+"."+octet2[1]
+		except Exception as e:
+			senderror(e)
+
 		try:
 			if Settings["WebUserName"] != "" and Settings["WebUserName"] != str(0) and "127.0" not in Settings["WebLocalNetworks"] and octet2 not in Settings["WebLocalNetworks"]:
 				Domoticz.Error("You have set a password, but have not excluded your local ip. Please do so, then restart domoticz.")
@@ -243,45 +261,48 @@ class BasePlugin:
 		except:
 			pass
 		
-		if self.error==False:
-			#Create temppath if it does not exist
-			if not os.path.isdir(self.Filelocation):
-				Domoticz.Status("Created folder "+self.Filelocation)
-				os.makedirs(self.Filelocation, mode=0o777)
-				
-			# Check if images are in database
-			Domoticz.Status("Checking if images are loaded")
-			if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
+		try:
+			if self.error==False:
+				#Create temppath if it does not exist
+				if not os.path.isdir(self.Filelocation):
+					Domoticz.Status("Created folder "+self.Filelocation)
+					os.makedirs(self.Filelocation, mode=0o777)
+					
+				# Check if images are in database
+				Domoticz.Status("Checking if images are loaded")
+				if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
 
-			DumpConfigToLog()
+				DumpConfigToLog()
 
-			Domoticz.Status("Starting up")
+				Domoticz.Status("Starting up")
 
-		#ConnectedChromecasts[Chromecastname] has 5 values in the end: index, chromecast object, variable IDX, chromecast status and hours since last connection
-		self.ConnectedChromecasts={}
-		for i, chromecastname in enumerate(Parameters["Mode1"].split(",")):
-			if chromecastname != "":
-				self.ConnectedChromecasts[chromecastname.strip()]=[i,"","","disconnected",0]
-		
-		if Settings["AcceptNewHardware"] != "1":
-			if len(Devices) != len(self.ConnectedChromecasts)*4:
-				Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices. Then restart Domoticz.")
-				self.error=True
-		else:
-			# Check if devices need to be deleted
-			self.updateDevices()
+			#ConnectedChromecasts[Chromecastname] has 5 values in the end: index, chromecast object, variable IDX, chromecast status and hours since last connection
+			self.ConnectedChromecasts={}
+			for i, chromecastname in enumerate(Parameters["Mode1"].split(",")):
+				if chromecastname != "":
+					self.ConnectedChromecasts[chromecastname.strip()]=[i,"","","disconnected",0]
 			
-			# Check if devices need to be created
-			createDevices(self.ConnectedChromecasts)
+			if Settings["AcceptNewHardware"] != "1":
+				if len(Devices) != len(self.ConnectedChromecasts)*4:
+					Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices. Then restart Domoticz.")
+					self.error=True
+			else:
+				# Check if devices need to be deleted
+				self.updateDevices()
+				
+				# Check if devices need to be created
+				createDevices(self.ConnectedChromecasts)
 
-			getVariables()
+				getVariables()
 
-			#Start FileServer
-			Domoticz.Log("Local ip address is "+self.ip)
-			self.fileserver()
+				#Start FileServer
+				Domoticz.Log("Local ip address is "+self.ip)
+				self.fileserver()
 
 
-		self.ConnectChromeCast()
+			self.ConnectChromeCast()
+		except Exception as e:
+			senderror(e)
 
 	def onHeartbeat(self):
 		if self.error == False:
@@ -389,9 +410,11 @@ class BasePlugin:
 
 		if self.ConnectedChromecasts[Chromecast][3] != "CONNECTED":
 			Domoticz.Error("Chromecast '"+Chromecast+"' is not connected, so I cannot issue a command to it. Reconnect '"+Chromecast+"' and try again.")
+			self.ConnectedChromecasts[Chromecast][1].disconnect()
 		else:
 			try:
 				cc=self.ConnectedChromecasts[Chromecast][1]
+				Domoticz.Log(cc.Name)
 				if Unit % 10 == 1:
 					if Level == 10:
 						Domoticz.Log("Start playing on chromecast")

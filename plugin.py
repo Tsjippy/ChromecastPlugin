@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -133,25 +133,26 @@ class ConnectionListener:
 			# new_status.status will be one of the CONNECTION_STATUS_ constants defined in the
 			# socket_client module.
 			if new_status.status == "CONNECTED":
-				Domoticz.Status("Succesfully connected to "+self.name)
+				Domoticz.Status("Succesfully connected to '"+self.name+"'")
 				self.cast.set_volume(0.5)
-				Domoticz.Status("Volume is "+str(self.cast.status.volume_level))
+				Domoticz.Status("Volume is '"+str(self.cast.status.volume_level)+"'")
 				_plugin.ConnectedChromecasts[self.name][3]=new_status.status
-			elif new_status.status == 'CONNECTING' and self.counter == 0:
-				Domoticz.Log("Trying to connect to "+self.name)
+			elif new_status.status == 'CONNECTING':
+				if self.counter == 0:
+					Domoticz.Log("Trying to connect to '"+self.name+"'")
 			elif new_status.status == 'FAILED':
 				if self.counter == 0:
-					Domoticz.Log("Failed to connect to "+self.name)
+					Domoticz.Log("Failed to connect to '"+self.name+"'")
 				elif self.counter == 10:
 					self.cast.disconnect()
 					Domoticz.Status("Disconnecting '"+self.name+"' as reconnecting did not succeed for 10 times.")
 					self.counter = -1
 				self.counter += 1
 			elif new_status.status == 'LOST':
-				Domoticz.Error("Connection with "+self.name+ " is lost.")
+				Domoticz.Error("Connection with '"+self.name+ "'' is lost.")
 				_plugin.ConnectedChromecasts[self.name][3]=new_status.status
 			else:
-				Domoticz.Error("status of "+self.name+" is changed to "+new_status)
+				Domoticz.Error("Status of '"+self.name+"'' is changed to "+str(new_status))
 		except Exception as e:
 			senderror(e)
 		
@@ -179,30 +180,6 @@ class StatusMediaListener:
 
 			self.Title = self.cast.media_controller.status.title
 			UpdateDevice(self.TitleDeviceId,0,self.Title)
-
-	def new_media_status(self, status):
-		try:
-			if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
-				self.Mode = status.player_state
-				DeviceID=10*self.ChromecastId+1
-				Domoticz.Log("The playing mode of "+self.name+" has changed to "+self.Mode)
-
-				if self.Mode == "PLAYING":
-					level=10
-				elif self.Mode == "PAUSED":
-					level=20
-				else:
-					level=0
-
-				UpdateDevice(DeviceID,level,level)
-
-			if self.Title != status.title:
-				self.Title = status.title
-				DeviceID=10*self.ChromecastId+3
-				Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
-				UpdateDevice(DeviceID,0,self.Title)
-		except Exception as e:
-			senderror(e)
 
 	def new_media_status(self, status):
 		try:

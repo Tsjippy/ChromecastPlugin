@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.2" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.3" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -193,7 +193,7 @@ class StatusMediaListener:
 					level=0
 				UpdateDevice(self.ModeDeviceId,level,level)
 
-			if self.Title != status.title:
+			if self.Title != status.title and status.title != None:
 				self.Title = status.title
 				Domoticz.Log("The title of "+self.name+" has changed to  "+self.Title)
 				UpdateDevice(self.TitleDeviceId,0,self.Title)
@@ -417,6 +417,8 @@ class BasePlugin:
 			except Exception as e:
 				if str(e) == "Chromecast is connecting...":
 					pass
+				elif str(e) == "Trying to use the controller without it being registered with a Cast object.":
+					Domoticz.Error("Somehow I cannot set the volume. The current chromecast used is this one: "+str(cc))
 				else:
 					senderror(e)
 
@@ -437,7 +439,7 @@ class BasePlugin:
 				for chromecast in self.chromecasts:
 					if Names != "Found these chromecasts: ":
 						Names+=", "
-					Names+=chromecast.device.friendly_name
+					Names+="'"+chromecast.device.friendly_name+"'"
 
 				Domoticz.Log(Names)
 			else:
@@ -455,7 +457,7 @@ class BasePlugin:
 							chromecast.set_volume(0.5)
 							Domoticz.Status("Set volume of '" + chromecast.name +"' to 50%")
 						self.ConnectedChromecasts[chromecast.name][1]=chromecast
-						Domoticz.Status("Connected to " + chromecast.name)
+						Domoticz.Status("Connected to '" + chromecast.name+"'")
 						self.ConnectedChromecasts[chromecast.name][3]="CONNECTED"
 						self.startListening(chromecast)
 				except KeyError:
@@ -463,12 +465,12 @@ class BasePlugin:
 					chromecast.disconnect()
 				except StopIteration:
 					#Chromecast is currently not available
-					Domoticz.Status("Could not connect to "+chromecast.name)
+					Domoticz.Status("Could not connect to '"+chromecast.name+"'")
 				except Exception as e:
 					senderror(e)
 
 	def startListening(self,chromecast):
-		Domoticz.Log("Registering listeners for " + chromecast.name)
+		Domoticz.Log("Registering listeners for '" + chromecast.name+"'")
 		listenerCast = StatusListener(chromecast)
 		chromecast.register_status_listener(listenerCast)
 
@@ -478,7 +480,7 @@ class BasePlugin:
 		connectioncast=ConnectionListener(chromecast)
 		chromecast.register_connection_listener(connectioncast)
 
-		Domoticz.Log("Done registering listeners for "+ chromecast.name)
+		Domoticz.Log("Done registering listeners for '"+ chromecast.name+"'")
 		
 	def fileserver(self):
 		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -607,7 +609,7 @@ def senderror(e):
 def createDevices(Chromecasts):
 	global _plugin
 	for Chromecast in Chromecasts:
-		Domoticz.Log("Checking devices for "+Chromecast)
+		Domoticz.Log("Checking devices for '"+Chromecast+"'")
 		#Check if variable needs to be created
 		try:
 			result=requests.get(_plugin.url+"/json.htm?type=command&param=adduservariable&vname="+Chromecast+"&vtype=2&vvalue=").json()["status"]
@@ -661,7 +663,7 @@ def getVariables():
 			try:
 				variable=next(var for var in VariablesIDX if var["Name"]==chromecast)
 				_plugin.ConnectedChromecasts[chromecast][2]=variable["idx"]
-				Domoticz.Log("Found uservariable for "+chromecast)
+				Domoticz.Log("Found uservariable for '"+chromecast+"'")
 			except:
 				Domoticz.Error("Somehow the uservariable for "+chromecast+" does not exist, please create it.")
 	except Exception as e:

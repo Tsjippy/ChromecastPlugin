@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.2" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -285,8 +285,9 @@ class BasePlugin:
 		if self.error == False:
 			RecheckNeeded=False
 			for ChromecastName in self.ConnectedChromecasts:
+				cc=self.ConnectedChromecasts[ChromecastName][1]
 				#Check if chromecast is already connected
-				if self.ConnectedChromecasts[ChromecastName][1] == "":
+				if cc == "":
 					RecheckNeeded=True
 
 				#Check if text needs to be spoken
@@ -297,7 +298,7 @@ class BasePlugin:
 					Text = ""
 
 				try:
-					if Text != "":
+					if Text != "" and cc != "":
 						#Reset the variable to empty
 						requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
 						if self.ConnectedChromecasts[ChromecastName][3] == "CONNECTED":
@@ -305,11 +306,10 @@ class BasePlugin:
 							os.system('curl -s -G "http://translate.google.com/translate_tts" --data "ie=UTF-8&total=1&idx=0&client=tw-ob&&tl='+self.Languague+'" --data-urlencode "q='+Text+'" -A "Mozilla" --compressed -o '+self.Filelocation+'/message.mp3')
 							
 							Domoticz.Status('Will pronounce "'+Text+'" on chromecast '+ChromecastName)
-							cc=self.ConnectedChromecasts[ChromecastName][1]
 							mc=cc.media_controller
 							
 							#Store YouTube session
-							if cc.status.display_name=="YouTube":
+							if cc.status.display_name is not None and cc.status.display_name=="YouTube":
 								mc.pause()
 								while mc.status.player_state != 'PAUSED':
 									time.sleep(0.1)
@@ -391,27 +391,29 @@ class BasePlugin:
 		else:
 			try:
 				cc=self.ConnectedChromecasts[Chromecast][1]
-				Domoticz.Log(cc.Name)
-				if Unit % 10 == 1:
-					if Level == 10:
-						Domoticz.Log("Start playing on chromecast")
-						cc.media_controller.play()
-					elif Level == 20:
-						Domoticz.Log("Pausing chromecast")
-						cc.media_controller.pause()
-					elif Level == 30:
-						Domoticz.Log("Killing "+cc.app_display_name)
-						cc.quit_app()
-					else:
-						Domoticz.Log("Level is "+Level+" What should I do with it?")
-				elif Unit % 10 == 2:
-					vl = float(Level)/100
-					cc.set_volume(vl)
-				elif Unit % 10 == 4:
-					if Level == 30:
-						Domoticz.Log("Starting Youtube on chromecast")
-						yt = YouTubeController()
-						cc.register_handler(yt)
+				if cc != "":
+					if Unit % 10 == 1:
+						if Level == 10:
+							Domoticz.Log("Start playing on chromecast")
+							cc.media_controller.play()
+						elif Level == 20:
+							Domoticz.Log("Pausing chromecast")
+							cc.media_controller.pause()
+						elif Level == 30:
+							Domoticz.Log("Killing "+cc.app_display_name)
+							cc.quit_app()
+						else:
+							Domoticz.Log("Level is "+Level+" What should I do with it?")
+					elif Unit % 10 == 2:
+						vl = float(Level)/100
+						cc.set_volume(vl)
+					elif Unit % 10 == 4:
+						if Level == 30:
+							Domoticz.Log("Starting Youtube on chromecast")
+							yt = YouTubeController()
+							cc.register_handler(yt)
+				else:
+					Domoticz.Error("Cannot issue the command as the Chromecast '"+Chromecast+"' is not connected.")
 			except Exception as e:
 				if str(e) == "Chromecast is connecting...":
 					pass

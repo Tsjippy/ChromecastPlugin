@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.3" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.4" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -391,7 +391,7 @@ class BasePlugin:
 		else:
 			try:
 				cc=self.ConnectedChromecasts[Chromecast][1]
-				if cc != "":
+				if cc != "" and cc.status != None:
 					if Unit % 10 == 1:
 						if Level == 10:
 							Domoticz.Log("Start playing on chromecast")
@@ -412,15 +412,12 @@ class BasePlugin:
 							Domoticz.Log("Starting Youtube on chromecast")
 							yt = YouTubeController()
 							cc.register_handler(yt)
+				elif (cc.status == None):
+					Domoticz.Status("Cannot issue a command to '"+Chromecast+"' when no app is connected.")
 				else:
 					Domoticz.Error("Cannot issue the command as the Chromecast '"+Chromecast+"' is not connected.")
 			except Exception as e:
-				if str(e) == "Chromecast is connecting...":
-					pass
-				elif str(e) == "Trying to use the controller without it being registered with a Cast object.":
-					Domoticz.Error("Somehow I cannot set the volume. The current chromecast used is this one: "+str(cc))
-				else:
-					senderror(e)
+				senderror(e)
 
 	def onStop(self):
 		global p

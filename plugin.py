@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.4" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.5" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -72,28 +72,31 @@ except ImportError:
 #############################################################################
 class StatusListener:
 	def __init__(self, cast):
-		self.name = cast.name
-		self.cast = cast
-		self.ChromecastId =_plugin.ConnectedChromecasts[self.name][0]
-		self.AppDeviceId = 10*self.ChromecastId+4
-		self.VolumeDeviceId = 10*self.ChromecastId+2
-		self.appLevels={}
-		self.appLevels["Backdrop"]=0
-		self.appLevels["None"]=0
-		self.appLevels["Spotify"]=10
-		self.appLevels["Netflix"]=20
-		self.appLevels["YouTube"]=30
-		self.appLevels["Default Media Receiver"]=40
-
-		if cast.status == None:
-			self.Appname = "None"
-			self.Volume = ""
-		else:
-			self.Appname = cast.status.display_name
-			UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
-			self.Volume = cast.status.volume_level
-			Volume = int(self.Volume*100)
-			UpdateDevice(self.VolumeDeviceId,2,Volume)
+		try:
+			self.name = cast.name
+			self.cast = cast
+			self.ChromecastId =_plugin.ConnectedChromecasts[self.name][0]
+			self.AppDeviceId = 10*self.ChromecastId+4
+			self.VolumeDeviceId = 10*self.ChromecastId+2
+			self.appLevels={}
+			self.appLevels["Backdrop"]=0
+			self.appLevels["None"]=0
+			self.appLevels["Spotify"]=10
+			self.appLevels["Netflix"]=20
+			self.appLevels["YouTube"]=30
+			self.appLevels["Default Media Receiver"]=40
+			
+			if cast.status == None or cast.status.display_name == None :
+				self.Appname = "None"
+				self.Volume = ""
+			else:
+				self.Appname = cast.status.display_name
+				UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
+				self.Volume = cast.status.volume_level
+				Volume = int(self.Volume*100)
+				UpdateDevice(self.VolumeDeviceId,2,Volume)
+		except Exception as e:
+			senderror(e)
 
 	def new_cast_status(self, status):
 		try:

@@ -11,6 +11,7 @@ Just add a languague code like 'en-US' or 'nl-NL', type in any text in the auto-
 
 Installation and setup
 ----------------------
+0) This plugin is only tested with python 3.5. If you have an older version please update python first.
 1)  Install Plugin: 
 ```bash
 cd domoticz/plugins

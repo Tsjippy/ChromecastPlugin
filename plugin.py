@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.5" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.6" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -91,6 +91,8 @@ class StatusListener:
 				self.Volume = ""
 			else:
 				self.Appname = cast.status.display_name
+				if not self.Appname in self.appLevels:
+					self.appLevels[self.Appname]=40
 				UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
 				self.Volume = cast.status.volume_level
 				Volume = int(self.Volume*100)
@@ -104,7 +106,9 @@ class StatusListener:
 				self.Appname = str(status.display_name)
 				Domoticz.Log("The app of '"+self.name+"' has changed to "+self.Appname)
 				
-				if self.appLevels[self.Appname] == 0:
+				if not self.Appname in self.appLevels:
+					self.appLevels[self.Appname]=40
+				elif self.appLevels[self.Appname] == 0:
 					Domoticz.Log("Will set the domoticz devices to off.")
 					#Control
 					AppDeviceID=10*self.ChromecastId+1
@@ -112,8 +116,7 @@ class StatusListener:
 					#Title
 					AppDeviceID=10*self.ChromecastId+3
 					UpdateDevice(AppDeviceID,0,"")
-				else:
-					Level=40
+
 				UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
 
 			if self.Volume != status.volume_level:
@@ -137,8 +140,9 @@ class ConnectionListener:
 			# socket_client module.
 			if new_status.status == "CONNECTED":
 				Domoticz.Status("Succesfully connected to '"+self.name+"'")
-				self.cast.set_volume(0.5)
-				Domoticz.Status("Volume is '"+str(self.cast.status.volume_level)+"'")
+				if self.cast.status.volume_level == 1:
+					self.cast.set_volume(0.5)
+				Domoticz.Status("Volume is '"+str(self.cast.status.volume_level*100)+"%'")
 				_plugin.ConnectedChromecasts[self.name][3]=new_status.status
 			elif new_status.status == 'CONNECTING':
 				if self.counter == 0:

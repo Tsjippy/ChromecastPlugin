@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.1.6" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.2.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -79,21 +79,31 @@ class StatusListener:
 			self.AppDeviceId = 10*self.ChromecastId+4
 			self.VolumeDeviceId = 10*self.ChromecastId+2
 			self.appLevels={}
-			self.appLevels["Backdrop"]=0
-			self.appLevels["None"]=0
-			self.appLevels["Spotify"]=10
-			self.appLevels["Netflix"]=20
-			self.appLevels["YouTube"]=30
-			self.appLevels["Default Media Receiver"]=40
-			
+			self.appLevels["Backdrop"] = 0
+			self.appLevels["None"] = 0
+			self.LastIndex = 0
+			for option in Devices[self.AppDeviceId].Options['LevelNames'].split("|"):
+				if not option == "Off":
+					Domoticz.Log("Adding '" + option + "' to app array")
+					self.LastIndex = self.LastIndex + 10
+					_plugin.AppOptions['LevelNames']=_plugin.AppOptions['LevelNames']+"|"+option
+
 			if cast.status == None or cast.status.display_name == None :
 				self.Appname = "None"
 				self.Volume = ""
 			else:
 				self.Appname = cast.status.display_name
+
 				if not self.Appname in self.appLevels:
-					self.appLevels[self.Appname]=40
-				UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
+					Domoticz.Log("Adding '"+self.Appname+"' to app device for chromecast '"+self.name+"'")
+					self.LastIndex = self.LastIndex + 10
+					#Add the option to the domoticz device
+					_plugin.AppOptions['LevelNames']=_plugin.AppOptions['LevelNames']+"|"+self.Appname
+					#Add the index to the appname index.
+					self.appLevels[self.Appname]=self.LastIndex
+					Devices[self.AppDeviceId].Update(self.appLevels[self.Appname], str(self.appLevels[self.Appname]),Options = _plugin.AppOptions)
+				else:
+					UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
 				self.Volume = cast.status.volume_level
 				Volume = int(self.Volume*100)
 				UpdateDevice(self.VolumeDeviceId,2,Volume)
@@ -104,10 +114,16 @@ class StatusListener:
 		try:
 			if self.Appname != str(status.display_name):
 				self.Appname = str(status.display_name)
-				Domoticz.Log("The app of '"+self.name+"' has changed to "+self.Appname)
+				Domoticz.Log("The app of '"+self.name+"' has changed to '"+self.Appname+"'")
 				
 				if not self.Appname in self.appLevels:
-					self.appLevels[self.Appname]=40
+					Domoticz.Log("Adding '"+self.Appname+"' to app device for chromecast '"+self.name+"'")
+					self.LastIndex = self.LastIndex + 10
+					#Add the option to the domoticz device
+					_plugin.AppOptions['LevelNames']=_plugin.AppOptions['LevelNames']+"|"+self.Appname
+					#Add the index to the appname index.
+					self.appLevels[self.Appname]=self.LastIndex
+					Devices[self.AppDeviceId].Update(self.appLevels[self.Appname], str(self.appLevels[self.Appname]),Options = _plugin.AppOptions)
 				elif self.appLevels[self.Appname] == 0:
 					Domoticz.Log("Will set the domoticz devices to off.")
 					#Control
@@ -217,9 +233,9 @@ class BasePlugin:
 		}
 
 		self.AppOptions =  {   "LevelActions"  : "|||||",
-		"LevelNames"    : "Off|Spotify|Netflix|Youtube|Other",
-		"LevelOffHidden": "true",
-		"SelectorStyle" : "0"
+		"LevelNames"    : "Off",
+		"LevelOffHidden": "false",
+		"SelectorStyle" : "1"
 		}
 
 	def onStart(self):

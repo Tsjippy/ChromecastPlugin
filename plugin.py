@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.2.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -46,26 +46,33 @@
 #############################################################################
 #                      Imports                                              #
 #############################################################################
-import sys
-import queue
-import requests
-import socket
-import http.server
-import socketserver
-import errno
-import os
-import time
-import datetime
-import pychromecast
-from pychromecast.controllers.youtube import YouTubeController
-from multiprocessing import Process, Queue
-
 try:
 	import Domoticz
 	debug = False
 except ImportError:
 	import fakeDomoticz as Domoticz
 	debug = True
+import sys
+import os
+
+major,minor,x,y,z = sys.version_info
+if (os.name == 'nt'):
+    Domoticz.Error("Windows is currently not supported.")
+else:
+    sys.path.append('/usr/lib/python3/dist-packages')
+    sys.path.append('/usr/local/lib/python'+str(major)+'.'+str(minor)+'/dist-packages')
+
+import queue
+import requests
+import socket
+import http.server
+import socketserver
+import errno
+import time
+import datetime
+import pychromecast
+from pychromecast.controllers.youtube import YouTubeController
+from multiprocessing import Process, Queue
 	
 #############################################################################
 #                      Domoticz call back functions                         #
@@ -81,12 +88,6 @@ class StatusListener:
 			self.appLevels={}
 			self.appLevels["Backdrop"] = 0
 			self.appLevels["None"] = 0
-			self.LastIndex = 0
-			for option in Devices[self.AppDeviceId].Options['LevelNames'].split("|"):
-				if not option == "Off":
-					Domoticz.Log("Adding '" + option + "' to app array")
-					self.LastIndex = self.LastIndex + 10
-					_plugin.AppOptions['LevelNames']=_plugin.AppOptions['LevelNames']+"|"+option
 
 			if cast.status == None or cast.status.display_name == None :
 				self.Appname = "None"
@@ -94,16 +95,12 @@ class StatusListener:
 			else:
 				self.Appname = cast.status.display_name
 
+				#The app index is not yet stored in the array
 				if not self.Appname in self.appLevels:
-					Domoticz.Log("Adding '"+self.Appname+"' to app device for chromecast '"+self.name+"'")
-					self.LastIndex = self.LastIndex + 10
-					#Add the option to the domoticz device
-					_plugin.AppOptions['LevelNames']=_plugin.AppOptions['LevelNames']+"|"+self.Appname
-					#Add the index to the appname index.
-					self.appLevels[self.Appname]=self.LastIndex
-					Devices[self.AppDeviceId].Update(self.appLevels[self.Appname], str(self.appLevels[self.Appname]),Options = _plugin.AppOptions)
-				else:
-					UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
+					self.new_app()
+				
+				UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
+
 				self.Volume = cast.status.volume_level
 				Volume = int(self.Volume*100)
 				UpdateDevice(self.VolumeDeviceId,2,Volume)
@@ -117,13 +114,7 @@ class StatusListener:
 				Domoticz.Log("The app of '"+self.name+"' has changed to '"+self.Appname+"'")
 				
 				if not self.Appname in self.appLevels:
-					Domoticz.Log("Adding '"+self.Appname+"' to app device for chromecast '"+self.name+"'")
-					self.LastIndex = self.LastIndex + 10
-					#Add the option to the domoticz device
-					_plugin.AppOptions['LevelNames']=_plugin.AppOptions['LevelNames']+"|"+self.Appname
-					#Add the index to the appname index.
-					self.appLevels[self.Appname]=self.LastIndex
-					Devices[self.AppDeviceId].Update(self.appLevels[self.Appname], str(self.appLevels[self.Appname]),Options = _plugin.AppOptions)
+					self.new_app()
 				elif self.appLevels[self.Appname] == 0:
 					Domoticz.Log("Will set the domoticz devices to off.")
 					#Control
@@ -140,6 +131,25 @@ class StatusListener:
 				Volume = int(self.Volume*100)
 				Domoticz.Log("Updated volume to "+str(Volume))
 				UpdateDevice(self.VolumeDeviceId,2,Volume)
+		except Exception as e:
+			senderror(e)
+
+	def new_app(self):
+		try:
+			#The appname is not yet an option in the domoticz device
+			if Devices[self.AppDeviceId].Options['LevelNames'].find(self.Appname) == -1:
+				Domoticz.Log("Adding '"+self.Appname+"' to app device for chromecast '"+self.name+"'")
+				#Add the option to the domoticz device
+				_plugin.AppOptions['LevelNames']=Devices[self.AppDeviceId].Options['LevelNames']+"|"+self.Appname
+				index = len(Devices[self.AppDeviceId].Options['LevelNames'].split("|"))*10
+				Devices[self.AppDeviceId].Update(index, str(index),Options = _plugin.AppOptions)
+
+			for i, level in enumerate(Devices[self.AppDeviceId].Options['LevelNames'].split("|")):
+				if level == self.Appname:
+					self.appLevels[self.Appname] = i*10
+					break
+
+			return
 		except Exception as e:
 			senderror(e)
 
@@ -239,6 +249,7 @@ class BasePlugin:
 		}
 
 	def onStart(self):
+
 		try:
 			self.Filelocation=Parameters["Mode2"]
 			self.Port = int(Parameters["Mode3"])

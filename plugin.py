@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -252,6 +252,9 @@ class BasePlugin:
 
 		try:
 			self.Filelocation=Parameters["Mode2"]
+			if self.Filelocation[-1] != "/":
+				self.Filelocation += "/"
+				Domoticz.Log("Added the final '/' to the directory path as you seem to have forgotten, its ok for now, but you better check your hardware settings.")
 			self.Port = int(Parameters["Mode3"])
 			self.Languague = Parameters["Mode4"]
 			self.url = Parameters["Mode5"]
@@ -518,15 +521,14 @@ class BasePlugin:
 		try:
 			Port = int(Parameters["Mode3"])
 			Domoticz.Log("Starting file server on port "+str(Port))
-			Filelocation=Parameters["Mode2"]
-			os.chdir(Filelocation)
+			os.chdir(self.Filelocation)
 			Handler = http.server.SimpleHTTPRequestHandler
 			socketserver.TCPServer.allow_reuse_address = True
 			server = socketserver.TCPServer(("", Port), Handler)
 			p = Process(target=server.serve_forever)
 			p.deamon = True
 			p.start()
-			Domoticz.Log("Files in the '"+Filelocation+"' directory are now available on port "+str(Port))
+			Domoticz.Log("Files in the '"+self.Filelocation+"' directory are now available on port "+str(Port))
 		except socket.error as e:
 			if e.errno == errno.EADDRINUSE:
 				Domoticz.Log("Port "+str(Port)+" is already in use")

@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.3" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -109,7 +109,7 @@ class StatusListener:
 
 	def new_cast_status(self, status):
 		try:
-			if self.Appname != str(status.display_name):
+			if status != None and self.Appname != str(status.display_name):
 				self.Appname = str(status.display_name)
 				Domoticz.Log("The app of '"+self.name+"' has changed to '"+self.Appname+"'")
 				
@@ -126,7 +126,7 @@ class StatusListener:
 
 				UpdateDevice(self.AppDeviceId,self.appLevels[self.Appname],self.appLevels[self.Appname])
 
-			if self.Volume != status.volume_level:
+			if status != None and self.Volume != status.volume_level:
 				self.Volume = status.volume_level
 				Volume = int(self.Volume*100)
 				Domoticz.Log("Updated volume to "+str(Volume))
@@ -173,6 +173,8 @@ class ConnectionListener:
 			elif new_status.status == 'CONNECTING':
 				if self.counter == 0:
 					Domoticz.Log("Trying to connect to '"+self.name+"'")
+			elif new_status.status == 'DISCONNECTED':
+				Domoticz.Log("'"+self.name+"' is disconnected.")
 			elif new_status.status == 'FAILED':
 				if self.counter == 0:
 					Domoticz.Log("Failed to connect to '"+self.name+"'")
@@ -182,7 +184,7 @@ class ConnectionListener:
 					self.counter = -1
 				self.counter += 1
 			elif new_status.status == 'LOST':
-				Domoticz.Error("Connection with '"+self.name+ "'' is lost.")
+				Domoticz.Error("Connection with '"+self.name+ "' is lost.")
 				_plugin.ConnectedChromecasts[self.name][3]=new_status.status
 			else:
 				Domoticz.Error("Status of '"+self.name+"'' is changed to "+str(new_status))
@@ -249,7 +251,6 @@ class BasePlugin:
 		}
 
 	def onStart(self):
-
 		try:
 			self.Filelocation=Parameters["Mode2"]
 			if self.Filelocation[-1] != "/":
@@ -265,6 +266,9 @@ class BasePlugin:
 			self.error=False
 			octet2=self.ip.split(".")
 			octet2=octet2[0]+"."+octet2[1]
+			self.Recheck = False
+			self.q = Queue()
+
 		except Exception as e:
 			senderror(e)
 
@@ -287,8 +291,6 @@ class BasePlugin:
 				if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
 
 				DumpConfigToLog()
-
-				Domoticz.Status("Starting up")
 
 			#ConnectedChromecasts[Chromecastname] has 5 values in the end: index, chromecast object, variable IDX, chromecast status and hours since last connection
 			self.ConnectedChromecasts={}
@@ -323,18 +325,20 @@ class BasePlugin:
 			RecheckNeeded=False
 			for ChromecastName in self.ConnectedChromecasts:
 				cc=self.ConnectedChromecasts[ChromecastName][1]
+				Text = ""
+
 				#Check if chromecast is already connected
 				if cc == "":
 					RecheckNeeded=True
+				else:
+					#Check if text needs to be spoken
+					try:
+						Text = requests.get(url=self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2]).json()['result'][0]['Value']
+					except:
+						Domoticz.Error(self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2] + " did not return any results. ("+str(self.ConnectedChromecasts[ChromecastName])+")")
 
-				#Check if text needs to be spoken
 				try:
-					Text = requests.get(url=self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2]).json()['result'][0]['Value']
-				except:
-					Domoticz.Error(self.getvariableurl+self.ConnectedChromecasts[ChromecastName][2] + " did not return any results. ("+str(self.ConnectedChromecasts[ChromecastName])+")")
-					Text = ""
-
-				try:
+					#Speak the text
 					if Text != "" and cc != "":
 						#Reset the variable to empty
 						requests.get(url=self.url+"/json.htm?type=command&param=updateuservariable&vname="+ChromecastName+"&vtype=2&vvalue=")
@@ -390,6 +394,8 @@ class BasePlugin:
 								p = Process(target=RestartYoutube, args=(q,uri,videoid,currenttime))
 								p.deamon=True
 								p.start()
+								while q.empty()==True:
+									time.sleep(1)
 								Domoticz.Log(q.get())
 								p.terminate()
 							else:
@@ -402,10 +408,10 @@ class BasePlugin:
 			if RecheckNeeded==True:
 				#Check if a chromecast is available in a seperate process.
 				#If available connect to it in this process.
-				q = Queue()
-				p = Process(target=ScanForChromecasts, args=(q,self.ConnectedChromecasts,))
+				p = Process(target=ScanForChromecasts, args=(self.q,self.ConnectedChromecasts,))
 				p.start()
-				self.Recheck=q.get()
+				if self.q.empty()==False:
+					self.Recheck=self.q.get()
 				p.terminate()
 
 				if self.Recheck == True:
@@ -461,7 +467,7 @@ class BasePlugin:
 		for chromecast in self.ConnectedChromecasts:
 			if self.ConnectedChromecasts[chromecast][1] != "":
 				cc=self.ConnectedChromecasts[chromecast][1]
-				Domoticz.Status("Disconnected from "+cc.name)
+				Domoticz.Status("Disconnecting from '"+cc.name+"'")
 				cc.disconnect()
 
 	def ConnectChromeCast(self):
@@ -475,7 +481,7 @@ class BasePlugin:
 						Names+=", "
 					Names+="'"+chromecast.device.friendly_name+"'"
 
-				Domoticz.Log(Names)
+				Domoticz.Status(Names)
 			else:
 				Domoticz.Status("No casting devices found, make sure they are online.")
 		except Exception as e:
@@ -504,7 +510,7 @@ class BasePlugin:
 					senderror(e)
 
 	def startListening(self,chromecast):
-		Domoticz.Log("Registering listeners for '" + chromecast.name+"'")
+		Domoticz.Status("Registering listeners for '" + chromecast.name+"'")
 		listenerCast = StatusListener(chromecast)
 		chromecast.register_status_listener(listenerCast)
 
@@ -514,13 +520,13 @@ class BasePlugin:
 		connectioncast=ConnectionListener(chromecast)
 		chromecast.register_connection_listener(connectioncast)
 
-		Domoticz.Log("Done registering listeners for '"+ chromecast.name+"'")
+		Domoticz.Status("Done registering listeners for '"+ chromecast.name+"'")
 		
 	def fileserver(self):
 		sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		try:
 			Port = int(Parameters["Mode3"])
-			Domoticz.Log("Starting file server on port "+str(Port))
+			Domoticz.Status("Starting file server on port "+str(Port))
 			os.chdir(self.Filelocation)
 			Handler = http.server.SimpleHTTPRequestHandler
 			socketserver.TCPServer.allow_reuse_address = True
@@ -528,7 +534,7 @@ class BasePlugin:
 			p = Process(target=server.serve_forever)
 			p.deamon = True
 			p.start()
-			Domoticz.Log("Files in the '"+self.Filelocation+"' directory are now available on port "+str(Port))
+			Domoticz.Status("Files in the '"+self.Filelocation+"' directory are now available on port "+str(Port))
 		except socket.error as e:
 			if e.errno == errno.EADDRINUSE:
 				Domoticz.Log("Port "+str(Port)+" is already in use")
@@ -714,7 +720,7 @@ def UpdateImage(Unit, Logo):
 def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
 	# Make sure that the Domoticz device still exists (they can be deleted) before updating it
 	if Unit in Devices:
-		if Devices[Unit].nValue != nValue or Devices[Unit].sValue != sValue or AlwaysUpdate == True:
+		if Devices[Unit].nValue != nValue or Devices[Unit].sValue != str(sValue) or AlwaysUpdate == True:
 			Devices[Unit].Update(nValue, str(sValue))
 			Domoticz.Log("Update " + Devices[Unit].Name + ": " + str(nValue) + " - '" + str(sValue) + "'")
 	return

@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.3" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.4" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -62,7 +62,7 @@ else:
     sys.path.append('/usr/lib/python3/dist-packages')
     sys.path.append('/usr/local/lib/python'+str(major)+'.'+str(minor)+'/dist-packages')
 
-import queue
+#import queue
 import requests
 import socket
 import http.server
@@ -290,18 +290,15 @@ class BasePlugin:
 				Domoticz.Status("Checking if images are loaded")
 				if 'ChromecastLogo' not in Images: Domoticz.Image('ChromecastLogo.zip').Create()
 
-				DumpConfigToLog()
-
 			#ConnectedChromecasts[Chromecastname] has 5 values in the end: index, chromecast object, variable IDX, chromecast status and hours since last connection
 			self.ConnectedChromecasts={}
 			for i, chromecastname in enumerate(Parameters["Mode1"].split(",")):
 				if chromecastname != "":
 					self.ConnectedChromecasts[chromecastname.strip()]=[i,"","","disconnected",0]
 			
-			if Settings["AcceptNewHardware"] != "1":
-				if len(Devices) != len(self.ConnectedChromecasts)*4:
-					Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices. Then restart Domoticz.")
-					self.error=True
+			if Settings["AcceptNewHardware"] != "1" and len(Devices) != len(self.ConnectedChromecasts)*4:
+				Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices. Then restart Domoticz.")
+				self.error=True
 			else:
 				# Check if devices need to be deleted
 				self.updateDevices()
@@ -651,14 +648,14 @@ def createDevices(Chromecasts):
 		Domoticz.Log("Checking devices for '"+Chromecast+"'")
 		#Check if variable needs to be created
 		try:
-			result=requests.get(_plugin.url+"/json.htm?type=command&param=adduservariable&vname="+Chromecast+"&vtype=2&vvalue=").json()["status"]
+			result=requests.get(_plugin.url+"/json.htm?type=command&param=adduservariable&vname="+Chromecast+"&vtype=2&vvalue=").json()
 			
-			if result !="OK" and result != "Variable name already exists!":
+			if result["status"] !="OK" and result["message"] != 'Variable with the same Name already exists!':
 				result=requests.get(_plugin.url+"/json.htm?type=command&param=saveuservariable&vname="+Chromecast+"&vtype=2&vvalue=").json()["status"]
 
-			if result=="OK":
+			if result["status"] == "OK":
 				Domoticz.Log("Created uservariable for '"+Chromecast+"'")
-			elif result=="Variable name already exists!":
+			elif result["message"] == "Variable name already exists!" or result["message"] == "Variable with the same Name already exists!":
 				#Domoticz.Log("Variable for "+Chromecast+" already exists.")
 				pass
 			else:

@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.4" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="3.3.5" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -499,7 +499,8 @@ class BasePlugin:
 						self.startListening(chromecast)
 				except KeyError:
 					#Disconnect from the chromecast as we don't need it
-					chromecast.disconnect()
+					#chromecast.disconnect()
+					pass
 				except StopIteration:
 					#Chromecast is currently not available
 					Domoticz.Status("Could not connect to '"+chromecast.name+"'")

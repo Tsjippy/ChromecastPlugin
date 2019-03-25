@@ -282,7 +282,7 @@ class BasePlugin:
 			self.SpotifyUsername = Parameters["Username"]
 			self.Spotifypassword = Parameters["Password"]
 			self.getvariableurl = self.url+"/json.htm?type=command&param=getuservariable&idx="
-			self.ip=get_ip()
+			self.ip=GetIP()
 			self.error=False
 			octet2=self.ip.split(".")
 			octet2=octet2[0]+"."+octet2[1]
@@ -527,7 +527,7 @@ class BasePlugin:
 						elif Level == 50:
 							#Next
 							if cc.app_display_name == "Spotify":
-								self.SpotifyClient.client.next_track()
+								self.SpotifyClient.next_track()
 						else:
 							Domoticz.Log("Level is "+Level+" What should I do with it?")
 					elif Unit % 10 == 2:
@@ -820,13 +820,13 @@ def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
 
 def CheckInternet():
 	try:
-	    requests.get(url='http://www.google.com/', timeout=5)
+		requests.get(url='http://www.google.com/', timeout=5)
 		return True
 	except requests.ConnectionError:
 		Domoticz.Error("You do not have a working internet connection.")
 		return False
 
-def get_ip():
+def GetIP():
 	s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 	try:
 		# doesn't even have to be reachable
@@ -839,10 +839,13 @@ def get_ip():
 	return IP
 
 def get_SpotifyToken():
-	global _plugin
-	data = st.start_session(_plugin.SpotifyUsername, self.Spotifypassword)
-	_plugin.SpotifyAccessToken = data[0]
-	_plugin.SpotifyClient = spotipy.Spotify(auth=self.SpotifyAccessToken)
+	try:
+		global _plugin
+		data = st.start_session(_plugin.SpotifyUsername, _plugin.Spotifypassword)
+		_plugin.SpotifyAccessToken = data[0]
+		_plugin.SpotifyClient = spotipy.Spotify(auth=_plugin.SpotifyAccessToken)
+	except Exception as e:
+		q.put('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+" Error is: " +str(e))
 		
 def RestartYoutube(q,uri,videoid,seektime):
 	ip=uri.split(":")[0]

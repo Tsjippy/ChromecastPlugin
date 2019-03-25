@@ -15,6 +15,10 @@ Installation and setup
 1) Install dependecies: 
 ```bash
 sudo pip3 install pychromecast
+
+If you have Spotify:
+sudo pip3 install spotify-token
+sudo pip3 install git+https://github.com/plamere/spotipy.git
 ```
 2)  Install Plugin: 
 ```bash

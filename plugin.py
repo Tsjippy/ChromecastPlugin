@@ -280,11 +280,15 @@ class BasePlugin:
 			self.Port = int(Parameters["Mode3"])
 			
 			self.Languague = Parameters["Mode4"]
+
 			self.Url = "http://"+Parameters["Address"]+":"+Parameters["Port"]
 			if self.Url == "":
 				self.Url="http://127.0.0.1:8080"
+
 			self.SpotifyUsername = Parameters["Username"]
+
 			self.Spotifypassword = Parameters["Password"]
+
 			self.GetVariableUrl = self.Url+"/json.htm?type=command&param=getuservariable&idx="
 			self.Ip=GetIP()
 			self.Error=False
@@ -328,6 +332,7 @@ class BasePlugin:
 				self.ConnectedChromecasts={}
 				for i, Chromecastname in enumerate(self.ChromecastNames):
 					if Chromecastname != "":
+						Domoticz.Log("Chromecastname is "+Chromecastname+" index is "+str(i))
 						self.ConnectedChromecasts[Chromecastname.strip()]={
 							"Index": i,
 							"CC": "",
@@ -504,7 +509,8 @@ class BasePlugin:
 
 		if self.ConnectedChromecasts[Chromecast]["Status"] != "CONNECTED":
 			Domoticz.Error("Chromecast '"+Chromecast+"' is not connected, so I cannot issue a command to it. Reconnect '"+Chromecast+"' and try again.")
-			self.ConnectedChromecasts[Chromecast]["CC"].disconnect()
+			if self.ConnectedChromecasts[Chromecast]["CC"] != "":
+				self.ConnectedChromecasts[Chromecast]["CC"].disconnect()
 		else:
 			try:
 				#Start Spotify connection
@@ -593,6 +599,7 @@ class BasePlugin:
 				Domoticz.Status(Names)
 			else:
 				Domoticz.Status("No casting devices found, make sure they are online.")
+
 				for ChromecastName in self.ConnectedChromecasts:
 					SetDeviceTimeOut(self.ConnectedChromecasts[ChromecastName]["Index"], 1)
 		except Exception as e:
@@ -707,16 +714,16 @@ class BasePlugin:
 						Domoticz.Log("Deleting '"+Devices[x].Name+"' with id "+str(x))
 						Devices[x].Delete()
 				elif self.ConnectedChromecasts.get(ChromecastName)["Index"] != ChromecastId:
-					currentid=self.ConnectedChromecasts[ChromecastName]["Index"]
+					Currentid=self.ConnectedChromecasts[ChromecastName]["Index"]
 					#Check if there is already a chromecast with this id
 					try:
 						Chromecast = next(Chromecast for Chromecast in self.ConnectedChromecasts if self.ConnectedChromecasts[Chromecast]["Index"]==ChromecastId)
-						self.ConnectedChromecasts[Chromecast]["Index"] = currentid
+						self.ConnectedChromecasts[Chromecast]["Index"] = Currentid
 					except StopIteration:
 						pass
 					except Exception as e:
 						senderror(e)
-					self.ConnectedChromecasts[Chromecast]["Index"] = currentid
+					self.ConnectedChromecasts[Chromecast]["Index"] = Currentid
 		except Exception as e:
 			senderror(e)
 		
@@ -842,7 +849,7 @@ def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
 
 def SetDeviceTimeOut(Unit, Value):
 	try:
-		for x in range(Unit+1, Unit+5):
+		for x in range(Unit*10+1, Unit*10+5):
 			Domoticz.Log("Setting device "+str(x)+" as timed out")
 			Devices[x].Update(nValue=Devices[Unit+1].nValue, sValue=str(Devices[Unit+1].sValue), TimedOut=Value)
 	except Exception as e:

@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.0.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.0.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -248,12 +248,14 @@ class StatusMediaListener:
 					GetSpotifyToken()
 					if _plugin.SpotifyClient.current_user_playing_track()['context'] != None:
 						Context_uri = _plugin.SpotifyClient.current_user_playing_track()['context']['uri']
+						ContextType = _plugin.SpotifyClient.current_user_playing_track()['context']["type"]
 					else:
 						Context_uri = None
 					MediaId = _plugin.SpotifyClient.current_user_playing_track()["item"]["uri"]
 
 					_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Track"] = MediaId
 					_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Playlist"] = Context_uri
+					_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Contexttype"] = ContextType
 
 				Domoticz.Log("The title of "+self.Name+" has changed to  "+self.Title)
 				UpdateDevice(self.TitleDeviceId,0,self.Title)
@@ -337,7 +339,7 @@ class BasePlugin:
 							"IDX": "",
 							"Status": "disconnected",
 							"ConnectionTime": 0,
-							"Spotify": {"Track": "spotify:track:3Zwu2K0Qa5sT6teCCHPShP", "Playlist": None},
+							"Spotify": {"Track": "spotify:track:3Zwu2K0Qa5sT6teCCHPShP", "Playlist": None, "Contexttype": None},
 							"YouTube": {"Track": "https://www.youtube.com/watch?v=tAkB-qUL6SA", "Playlist": None}
 						}
 				
@@ -419,7 +421,7 @@ class BasePlugin:
 
 									#Spotify is playing a playlist
 									if self.SpotifyClient.current_user_playing_track()['context'] != None:
-										self.SpotifyClient.current_user_playing_track()['context']["type"]
+										ContextType = self.SpotifyClient.current_user_playing_track()['context']["type"]
 										ContextUri = self.SpotifyClient.current_user_playing_track()['context']['uri']
 										Offset = {"position": self.SpotifyClient.current_user_playing_track()["item"]["track_number"]}
 										MediaId = self.SpotifyClient.current_user_playing_track()["item"]["uri"]
@@ -472,7 +474,7 @@ class BasePlugin:
 								p.terminate()
 							elif PreviousApp == "Spotify":
 								Uri=cc.uri
-								pSpotify = Process(target=RestartSpotify, args=(self.q2,Uri,MediaId,CurrentTime,context_uri))
+								pSpotify = Process(target=RestartSpotify, args=(self.q2,Uri,MediaId,CurrentTime,ContextUri,ContextType))
 								pSpotify.deamon=True
 								pSpotify.start()
 							else:
@@ -529,13 +531,6 @@ class BasePlugin:
 						elif Level == 20:
 							Domoticz.Log("Start playing on '"+cc.name+"'")
 							Mc.play()
-							time.sleep(1)
-							
-							if cc.app_display_name == "Spotify" and cc.media_controller.status.player_state != 'PLAYING':
-								Domoticz.Status("Started playback of Spotify on '"+cc.name+"'")
-								p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["Spotify"]["Track"],0,self.ConnectedChromecasts[Chromecast]["Spotify"]["Playlist"]))
-								p.deamon=True
-								p.start()
 						#Pause
 						elif Level == 30:
 							Domoticz.Log("Pausing '"+cc.name+"'")
@@ -560,7 +555,7 @@ class BasePlugin:
 						AppName = LevelNames[int(Level/10)]
 						if AppName == "Spotify":
 							Domoticz.Status("Starting Spotify on '"+cc.name+"'")
-							p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["Spotify"]["Track"],0,self.ConnectedChromecasts[Chromecast]["Spotify"]["Playlist"]))
+							p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["Spotify"]["Track"],0,self.ConnectedChromecasts[Chromecast]["Spotify"]["Playlist"],self.ConnectedChromecasts[Chromecast]["Spotify"]["Contexttype"] ))
 							p.deamon=True
 							p.start()
 						elif AppName == "Youtube":
@@ -899,15 +894,18 @@ def RestartYoutube(q,uri,videoid,seektime):
 	cc.disconnect()
 	q.put("Done")
 
-def RestartSpotify(q,uri,trackid="spotify:track:3Zwu2K0Qa5sT6teCCHPShP",seektime=0,context_uri=None):
+def RestartSpotify(q,uri,trackid="spotify:track:3Zwu2K0Qa5sT6teCCHPShP",seektime=0,context_uri=None,context_type=None):
 	global _plugin
 	try:
+		offset = None
+
 		if context_uri != None:
-			offset = {"uri": trackid}
+			if context_type != "artist":
+				offset = {"uri": trackid}
 			trackid = None
 		else:
 			trackid = [str(trackid)]
-			offset = None
+			
 
 		ip=uri.split(":")[0]
 		port=int(uri.split(":")[1])
@@ -929,12 +927,15 @@ def RestartSpotify(q,uri,trackid="spotify:track:3Zwu2K0Qa5sT6teCCHPShP",seektime
 		        device_id = device['id']
 		        break
 
-		_plugin.SpotifyClient.start_playback(device_id=device_id, uris=trackid, context_uri=context_uri, offset=offset)
-
-		if trackid == None:
-			q.put("Restarted playback of playlist "+str(context_uri).split(":")[-1] + " and track " + str(offset["uri"]).split(":")[-1] )
+		if trackid == None and offset != None:
+			q.put("Restarted playback of "+context_type+" "+str(context_uri).split(":")[-1] + " and track " + str(offset["uri"]).split(":")[-1] )
+		elif trackid == None:
+			q.put("Restarted playback of "+context_type+" "+str(context_uri).split(":")[-1])
 		else:
 			q.put("Restarted playback of track "+str(trackid).split(":")[-1] )
+
+
+		_plugin.SpotifyClient.start_playback(device_id=device_id, uris=trackid, context_uri=context_uri, offset=offset)
 
 		if seektime != 0:
 			_plugin.SpotifyClient.seek_track(seektime)

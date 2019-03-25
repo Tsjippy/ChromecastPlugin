@@ -245,6 +245,7 @@ class StatusMediaListener:
 					else:
 						context_uri = None
 					mediaId = _plugin.SpotifyClient.current_user_playing_track()["item"]["uri"]
+
 					_plugin.ConnectedChromecasts[self.name]["Spotify"]["Track"] = mediaId
 					_plugin.ConnectedChromecasts[self.name]["Spotify"]["Playlist"] = context_uri
 
@@ -509,12 +510,13 @@ class BasePlugin:
 								self.SpotifyClient.previous_track()
 						elif Level == 20:
 							Domoticz.Log("Start playing on '"+cc.name+"'")
-							result = cc.media_controller.play()
-							Domoticz.Status(str(result))
+							cc.media_controller.play()
+							time.sleep(1)
 
+							Domoticz.Error(str(cc.media_controller.status.player_state))
 							if cc.app_display_name == "Spotify" and cc.media_controller.status.player_state != 'PLAYING':
 								Domoticz.Status("Started playback of Spotify on '"+cc.name+"'")
-								p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["SpotifyTrack"]))
+								p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["Spotify"]["Track"],0,self.ConnectedChromecasts[Chromecast]["Spotify"]["Playlist"]))
 								p.deamon=True
 								p.start()
 
@@ -538,7 +540,7 @@ class BasePlugin:
 						AppName = LevelNames[int(Level/10)]
 						if AppName == "Spotify":
 							Domoticz.Status("Starting Spotify on '"+cc.name+"'")
-							p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["SpotifyTrack"]))
+							p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["Spotify"]["Track"],0,self.ConnectedChromecasts[Chromecast]["Spotify"]["Playlist"]))
 							p.deamon=True
 							p.start()
 						elif AppName == "Youtube":
@@ -897,9 +899,9 @@ def RestartSpotify(q,uri,trackid="spotify:track:3Zwu2K0Qa5sT6teCCHPShP",seektime
 		_plugin.SpotifyClient.start_playback(device_id=device_id, uris=trackid, context_uri=context_uri, offset=offset)
 
 		if trackid == None:
-			q.put("Restarted playback of playlist "+str(context_uri) + " and track " + str(offset))
+			q.put("Restarted playback of playlist "+str(context_uri).split(":")[-1] + " and track " + str(offset["uri"]).split(":")[-1] )
 		else:
-			q.put("Restarted playback of track "+str(trackid))
+			q.put("Restarted playback of track "+str(trackid).split(":")[-1] )
 
 		if seektime != 0:
 			_plugin.SpotifyClient.seek_track(seektime)

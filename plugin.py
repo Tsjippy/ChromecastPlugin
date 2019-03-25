@@ -73,6 +73,12 @@ import datetime
 import pychromecast
 from pychromecast.controllers.youtube import YouTubeController
 from multiprocessing import Process, Queue
+from pychromecast.controllers.spotify import SpotifyController
+try:
+	import spotify_token
+	import spotipy
+except:
+	pass
 	
 #############################################################################
 #                      Domoticz call back functions                         #
@@ -297,14 +303,6 @@ class BasePlugin:
 			self.Recheck = False
 			self.q = Queue()
 			self.q2 = Queue()
-
-			if self.SpotifyUsername != "" and self.Spotifypassword != "":
-				Domoticz.Status("Importing spotify plugins")
-				from pychromecast.controllers.spotify import SpotifyController
-				import spotify_token as st
-				import spotipy.util as util
-				import spotipy
-
 		except Exception as e:
 			senderror(e)
 
@@ -532,8 +530,7 @@ class BasePlugin:
 							Domoticz.Log("Start playing on '"+cc.name+"'")
 							Mc.play()
 							time.sleep(1)
-
-							Domoticz.Error(str(cc.media_controller.status.player_state))
+							
 							if cc.app_display_name == "Spotify" and cc.media_controller.status.player_state != 'PLAYING':
 								Domoticz.Status("Started playback of Spotify on '"+cc.name+"'")
 								p = Process(target=RestartSpotify, args=(self.q2,cc.uri,self.ConnectedChromecasts[Chromecast]["Spotify"]["Track"],0,self.ConnectedChromecasts[Chromecast]["Spotify"]["Playlist"]))
@@ -879,11 +876,11 @@ def GetSpotifyToken():
 	try:
 		global _plugin
 		if _plugin.SpotifyUsername != "" and _plugin.Spotifypassword != "":
-			data = st.start_session(_plugin.SpotifyUsername, _plugin.Spotifypassword)
+			data = spotify_token.start_session(_plugin.SpotifyUsername, _plugin.Spotifypassword)
 			_plugin.SpotifyAccessToken = data[0]
 			_plugin.SpotifyClient = spotipy.Spotify(auth=_plugin.SpotifyAccessToken)
 	except Exception as e:
-		q.put('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+" Error is: " +str(e))
+		senderror(e)
 		
 def RestartYoutube(q,uri,videoid,seektime):
 	ip=uri.split(":")[0]

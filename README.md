@@ -30,13 +30,16 @@ You can find the languague code relevant for you here: http://www.lingoes.net/en
 
 Known issues
 ----------
-* After playing a custom mesagge, your previous playback does not resume. (except for YouTube)
+* After playing a custom mesagge, your previous playback does not resume. (except for YouTube and Spotify)
 * Limited support for Netflix as they encrypt their data:
   * If you pause netflix from the web/an app, Domoticz doesn't know
   * If you pause it from Domoticz it works
   * Title device does not get updated
-* Spotify cannot made to resume because of this bug: https://github.com/balloob/pychromecast/issues/253
 
 Known bugs
 ----------
 * Does not work with the current stable of domoticz, you need the latest beta
+
+Releases
+----------
+25-03-2019: 4.0.0 Added Spotify support, added previous and next buttons.

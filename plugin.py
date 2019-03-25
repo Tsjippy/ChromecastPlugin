@@ -122,7 +122,7 @@ class StatusListener:
 				if not self.Appname in self.AppLevels:
 					self.new_app()
 				elif self.AppLevels[self.Appname] == 0:
-					Domoticz.Log("Will set the domoticz devices to off.")
+					Domoticz.Log("Will set the domoticz devices to off, as nothing is playing.")
 					#Control
 					AppDeviceID=10*self.ChromecastId+1
 					UpdateDevice(AppDeviceID,0,0)
@@ -434,7 +434,7 @@ class BasePlugin:
 							
 							if Parameters["Mode6"]=="True":
 								PreviousVolume=int(cc.status.volume_level*100)
-								Domoticz.Status("Current volume is "+str(previousvolume))
+								Domoticz.Status("Current volume is "+str(PreviousVolume))
 								cc.quit_app()
 								time.sleep(0.5)
 								Domoticz.Log("Maximizing volume")

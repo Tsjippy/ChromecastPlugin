@@ -49,3 +49,7 @@ Known bugs
 Releases
 ----------
 25-03-2019: 4.0.0 Added Spotify support, added previous and next buttons.
+
+Donations
+----------
+If you want, you can thank me by donating via https://www.paypal.me/Tsjippy

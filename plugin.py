@@ -233,8 +233,8 @@ class StatusMediaListener:
 			if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
 				self.Mode = status.player_state
 
-				Domoticz.Status("Displayname is "+self.Cast.status.display_name)
-				if self.Mode == "UNKNOWN" and self.Cast.status.display_name == "Spotify" and _plugin.SpotifyClient.current_user_playing_track()['is_playing'] == True:
+				TrackInfo = _plugin.SpotifyClient.current_user_playing_track()
+				if TrackInfo != None and self.Mode == "UNKNOWN" and self.Cast.status.display_name == "Spotify" and TrackInfo['is_playing'] == True:
 					self.Mode = "PLAYING"
 
 				Domoticz.Log("The playing mode of "+self.Name+" has changed to "+self.Mode)

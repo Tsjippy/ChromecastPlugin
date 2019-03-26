@@ -251,16 +251,19 @@ class StatusMediaListener:
 				#Store Spotify track and playlist for later use
 				if self.Cast.status.display_name == "Spotify":
 					GetSpotifyToken()
-					if _plugin.SpotifyClient.current_user_playing_track()['context'] != None:
-						Context_uri = _plugin.SpotifyClient.current_user_playing_track()['context']['uri']
-						ContextType = _plugin.SpotifyClient.current_user_playing_track()['context']["type"]
-					else:
-						Context_uri = None
-					MediaId = _plugin.SpotifyClient.current_user_playing_track()["item"]["uri"]
+					TrackInfo = _plugin.SpotifyClient.current_user_playing_track()
 
-					_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Track"] = MediaId
-					_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Playlist"] = Context_uri
-					_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Contexttype"] = ContextType
+					if TrackInfo != None:
+						if TrackInfo['context'] != None:
+							Context_uri = TrackInfo['context']['uri']
+							ContextType = TrackInfo['context']["type"]
+						else:
+							Context_uri = None
+						MediaId = TrackInfo["item"]["uri"]
+
+						_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Track"] = MediaId
+						_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Playlist"] = Context_uri
+						_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Contexttype"] = ContextType
 				elif self.Cast.status.display_name == "YouTube":
 					_plugin.ConnectedChromecasts[self.Name]["YouTube"]["Track"] = status.content_id
 

@@ -237,7 +237,7 @@ class StatusMediaListener:
 				if TrackInfo != None and self.Mode == "UNKNOWN" and self.Cast.status.display_name == "Spotify" and TrackInfo['is_playing'] == True:
 					self.Mode = "PLAYING"
 
-				Domoticz.Log("The playing mode of "+self.Name+" has changed to "+self.Mode)
+				Domoticz.Log("The playing mode of '"+self.Name+"' has changed to "+self.Mode)
 
 				try:
 					Level=self.ModeLevels[self.Mode]

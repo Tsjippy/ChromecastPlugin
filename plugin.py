@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.0.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.0.2" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -193,7 +193,7 @@ class ConnectionListener:
 					self.Counter = -1
 				self.Counter += 1
 			elif new_status.status == 'LOST':
-				Domoticz.Error("Connection with '"+self.Name+ "' is lost.")
+				Domoticz.Status("Connection with '"+self.Name+ "' is lost.")
 				_plugin.ConnectedChromecasts[self.Name]["Status"]=new_status.status
 				SetDeviceTimeOut(_plugin.ConnectedChromecasts[self.Name]["Index"],1)
 			else:
@@ -874,6 +874,8 @@ def GetSpotifyToken():
 			data = spotify_token.start_session(_plugin.SpotifyUsername, _plugin.Spotifypassword)
 			_plugin.SpotifyAccessToken = data[0]
 			_plugin.SpotifyClient = spotipy.Spotify(auth=_plugin.SpotifyAccessToken)
+	except requests.exceptions.ConnectionError:
+		pass
 	except Exception as e:
 		senderror(e)
 		
@@ -904,7 +906,7 @@ def RestartSpotify(q,uri,trackid="spotify:track:3Zwu2K0Qa5sT6teCCHPShP",seektime
 				offset = {"uri": trackid}
 			trackid = None
 		else:
-			trackid = [str(trackid)]
+			trackid = [trackid]
 			
 
 		ip=uri.split(":")[0]
@@ -932,7 +934,7 @@ def RestartSpotify(q,uri,trackid="spotify:track:3Zwu2K0Qa5sT6teCCHPShP",seektime
 		elif trackid == None:
 			q.put("Restarted playback of "+context_type+" "+str(context_uri).split(":")[-1])
 		else:
-			q.put("Restarted playback of track "+str(trackid).split(":")[-1] )
+			q.put("Restarted playback of track "+trackid[0].split(":")[-1] )
 
 
 		_plugin.SpotifyClient.start_playback(device_id=device_id, uris=trackid, context_uri=context_uri, offset=offset)
@@ -944,7 +946,10 @@ def RestartSpotify(q,uri,trackid="spotify:track:3Zwu2K0Qa5sT6teCCHPShP",seektime
 		cc.disconnect()
 		q.put("Restarting Spotify is done")
 	except Exception as e:
-		q.put('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+" Error is: " +str(e))
+		if "Could not connect to" in e:
+			q.put("Could not start Spotify as the chrmecast is not connected.")
+		else:
+			q.put('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+" Error is: " +str(e))
 
 def ScanForChromecasts(q,ConnectedChromecasts):
 	Recheck=False

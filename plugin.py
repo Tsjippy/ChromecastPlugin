@@ -513,11 +513,9 @@ class BasePlugin:
 			if len(self.Chromecasts) != 0:
 				Names="Found these chromecasts: "
 				for chromecast in self.Chromecasts:
-					if Names != "Found these chromecasts: ":
-						Names+=", "
-					Names+="'"+chromecast.device.friendly_name+"'"
+					Names+="'"+chromecast.device.friendly_name+"', "
 
-				Domoticz.Status(Names)
+				Domoticz.Status(Names[:-2])
 			else:
 				Domoticz.Status("No casting devices found, make sure they are online.")
 
@@ -870,9 +868,11 @@ def UpdateDevice(Unit, nValue, sValue, AlwaysUpdate=False):
 
 def SetDeviceTimeOut(Unit, Value):
 	try:
+		Names = ""
 		for x in range(Unit*10+1, Unit*10+5):
-			Domoticz.Log("Setting device "+str(x)+" as timed out")
+			Names += "'" + Devices[x].Name + "', "
 			Devices[x].Update(nValue=Devices[Unit+1].nValue, sValue=str(Devices[Unit+1].sValue), TimedOut=Value)
+		Domoticz.Log("Setting devices "+ Names[:-2] +" as timed out, as the chromecast is not connected.")
 	except Exception as e:
 		senderror(e)
 

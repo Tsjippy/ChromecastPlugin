@@ -224,7 +224,7 @@ class StatusMediaListener:
 				Level=0
 			UpdateDevice(self.ModeDeviceId,Level,Level)
 
-			self.Title = self.Cast.media_controller.status.title
+			self.Title = self.Mc.status.title
 			UpdateDevice(self.TitleDeviceId,0,self.Title)
 
 	def new_media_status(self, status):
@@ -233,6 +233,7 @@ class StatusMediaListener:
 			if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
 				self.Mode = status.player_state
 
+				GetSpotifyToken()
 				TrackInfo = _plugin.SpotifyClient.current_user_playing_track()
 				if TrackInfo != None and self.Mode == "UNKNOWN" and self.Cast.status.display_name == "Spotify" and TrackInfo['is_playing'] == True:
 					self.Mode = "PLAYING"
@@ -250,7 +251,6 @@ class StatusMediaListener:
 
 				#Store Spotify track and playlist for later use
 				if self.Cast.status.display_name == "Spotify":
-					GetSpotifyToken()
 					TrackInfo = _plugin.SpotifyClient.current_user_playing_track()
 
 					if TrackInfo != None:

@@ -48,7 +48,11 @@ Known bugs
 
 Releases
 ----------
+27-03-2019: 4.1.0 Cleaner code and better Spotify listeners
 25-03-2019: 4.0.0 Added Spotify support, added previous and next buttons.
+03-12-2018: 3.0.0 Massive rework and better listeners
+20-11-2018: 2.0.0 Bugfixes
+12-11-2018: 1.0.0 First release
 
 Donations
 ----------

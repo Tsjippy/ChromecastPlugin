@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.2.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.2.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -1006,8 +1006,13 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 		else:
 			q.put("Restarted playback of track " + TrackInfo['items'][0]['track']['name'] )
 
-
-		_plugin.SpotifyClient.start_playback(device_id=device_id, uris=TrackId, context_uri=ContextUri, offset=Offset)
+		try:
+			_plugin.SpotifyClient.start_playback(device_id=device_id, uris=TrackId, context_uri=ContextUri, offset=Offset)
+		except:
+			try:
+				_plugin.SpotifyClient.start_playback(device_id=device_id, uris=TrackId, context_uri=ContextUri)
+			except Exception as e:
+				q.put('Error on line {}'.format(sys.exc_info()[-1].tb_lineno)+" Error is: " +str(e))
 
 		if seektime != 0:
 			_plugin.SpotifyClient.seek_track(seektime)

@@ -293,6 +293,7 @@ class BasePlugin:
 
 	def onStart(self):
 		try:
+			self.Debug = True
 			self.ChromecastNames = Parameters["Mode1"].split(",")
 
 			self.Filelocation=Parameters["Mode2"]
@@ -933,6 +934,7 @@ def GetSpotifyToken():
 			data = spotify_token.start_session(_plugin.SpotifyUsername, _plugin.Spotifypassword)
 			_plugin.SpotifyAccessToken = data[0]
 			_plugin.SpotifyClient = spotipy.Spotify(auth=_plugin.SpotifyAccessToken)
+			_plugin.SpotifyUserId = _plugin.SpotifyClient.current_user()["id"]
 	except requests.exceptions.ConnectionError:
 		pass
 	except Exception as e:
@@ -998,14 +1000,24 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 		        break
 
 		if ContextUri != None and Offset != None:
-			PlaylistName = _plugin.SpotifyClient.user_playlist(_plugin.SpotifyClient.current_user()["id"],ContextUri,"name")["name"]
+			if _plugin.Debug == True:
+				q.put("Spotify user id is " + str(_plugin.SpotifyUserId) + " contexturi is " + ContextUri)
+			PlaylistName = _plugin.SpotifyClient.user_playlist(_plugin.SpotifyUserId,ContextUri,"name")["name"]
 			q.put("Restarted playback of "+ContextType+" with the name '"+ PlaylistName + "' and track '" + TrackInfo['items'][0]['track']['name'] + "'" )
 		elif ContextUri != None:
-			PlaylistName = _plugin.SpotifyClient.user_playlist(_plugin.SpotifyClient.current_user()["id"],ContextUri,"name")["name"]
-			q.put("Restarted playback of " + ContextType + " with the name '"+ PlaylistName + "'")
+			if _plugin.Debug == True:
+				q.put("Spotify user id is " + str(_plugin.SpotifyUserId) + " contexturi is " + ContextUri)
+			if Contexttype == 'artist':
+				ArtistName = _plugin.SpotifyClient.artist(ContextUri)["name"]
+				q.put("Restarted playback of " + ContextType + " with the name '"+ ArtistName + "'")
+			else:
+				PlaylistName = _plugin.SpotifyClient.user_playlist(_plugin.SpotifyUserId,ContextUri,"name")["name"]
+				q.put("Restarted playback of "+ContextType+" with the name '"+ PlaylistName + "'" )
 		else:
 			q.put("Restarted playback of track " + TrackInfo['items'][0]['track']['name'] )
 
+		if _plugin.Debug == True:
+			Domoticz.Log("Spotify arguments are: uris "+str(TrackId) + " context uri " + context_uri + " offset " + Offset)
 		try:
 			_plugin.SpotifyClient.start_playback(device_id=device_id, uris=TrackId, context_uri=ContextUri, offset=Offset)
 		except:

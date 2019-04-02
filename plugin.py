@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.2.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.2.5" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -87,23 +87,23 @@ except:
 class StatusListener:
 	def __init__(self, cast):
 		try:
-			self.Name = cast.name
-			self.Cast = cast
-			self.ChromecastId =_plugin.ConnectedChromecasts[self.Name]["Index"]
-			self.AppDeviceId = 10*self.ChromecastId+4
-			self.VolumeDeviceId = 10*self.ChromecastId+2
-			self.AppLevels={}
-			self.AppLevels["Backdrop"] = 0
-			self.AppLevels["None"] = 0
-			self.CastType = self.Cast.cast_type
+			self.Name 					= cast.name
+			self.Cast 					= cast
+			self.ChromecastId 			= _plugin.ConnectedChromecasts[self.Name]["Index"]
+			self.AppDeviceId 			= 10*self.ChromecastId+4
+			self.VolumeDeviceId 		= 10*self.ChromecastId+2
+			self.AppLevels 				= {}
+			self.AppLevels["Backdrop"] 	= 0
+			self.AppLevels["None"] 		= 0
+			self.CastType 				= self.Cast.cast_type
 			if self.Cast.model_name == 'Google Home Mini':
 				self.CastType = 'audio'
 
 			if cast.status == None or cast.status.display_name == None :
-				self.Appname = "None"
-				self.Volume = ""
+				self.Appname 			= "None"
+				self.Volume 			= ""
 			else:
-				self.Appname = cast.status.display_name
+				self.Appname 			= cast.status.display_name
 
 				#The app index is not yet stored in the array
 				if not self.Appname in self.AppLevels:
@@ -111,8 +111,8 @@ class StatusListener:
 				
 				UpdateDevice(self.AppDeviceId,self.AppLevels[self.Appname],self.AppLevels[self.Appname])
 
-				self.Volume = cast.status.volume_level
-				Volume = int(self.Volume*100)
+				self.Volume 			= cast.status.volume_level
+				Volume 					= int(self.Volume*100)
 				UpdateDevice(self.VolumeDeviceId,2,Volume)
 		except Exception as e:
 			senderror(e)
@@ -207,28 +207,28 @@ class ConnectionListener:
 		
 class StatusMediaListener:
 	def __init__(self, cast):
-		self.Name = cast.name
-		self.Cast= cast
-		self.Mc = cast.media_controller
-		self.Mode=""
-		self.Title=""
-		self.ChromecastId =_plugin.ConnectedChromecasts[self.Name]["Index"]
-		self.ModeDeviceId = 10*self.ChromecastId+1
-		self.TitleDeviceId = 10*self.ChromecastId+3
-		self.ModeLevels={}
-		self.ModeLevels["PLAYING"] = 20
-		self.ModeLevels["PAUSED"] = 30
+		self.Name 					= cast.name
+		self.Cast 					= cast
+		self.Mc 					= cast.media_controller
+		self.Mode 					= ""
+		self.Title 					= ""
+		self.ChromecastId 			= _plugin.ConnectedChromecasts[self.Name]["Index"]
+		self.ModeDeviceId 			= 10*self.ChromecastId+1
+		self.TitleDeviceId 			= 10*self.ChromecastId+3
+		self.ModeLevels 			= {}
+		self.ModeLevels["PLAYING"] 	= 20
+		self.ModeLevels["PAUSED"] 	= 30
 
 		if cast.status != None and cast.status.display_name != None and cast.status.display_name !='Backdrop':
-			self.Title=""
-			self.Mode = self.Cast.media_controller.status.player_state
+			self.Title 				= ""
+			self.Mode 				= self.Cast.media_controller.status.player_state
 			try:
-				Level=self.ModeLevels[self.Mode]
+				Level 				= self.ModeLevels[self.Mode]
 			except:
-				Level=0
+				Level  				= 0
 			UpdateDevice(self.ModeDeviceId,Level,Level)
 
-			self.Title = self.Mc.status.title
+			self.Title 				= self.Mc.status.title
 			UpdateDevice(self.TitleDeviceId,0,self.Title)
 
 	def new_media_status(self, status):
@@ -236,8 +236,6 @@ class StatusMediaListener:
 			global _plugin
 			if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
 				self.Mode = status.player_state
-
-				GetSpotifyToken()
 				TrackInfo = _plugin.SpotifyClient.current_user_playing_track()
 				if TrackInfo != None and self.Mode == "UNKNOWN" and self.Cast.status.display_name == "Spotify" and TrackInfo['is_playing'] == True:
 					self.Mode = "PLAYING"
@@ -293,33 +291,30 @@ class BasePlugin:
 
 	def onStart(self):
 		try:
-			self.Debug = True
-			self.ChromecastNames = Parameters["Mode1"].split(",")
+			self.Debug 					= True
+			self.ChromecastNames 		= Parameters["Mode1"].split(",")
+			self.Filelocation 			= Parameters["Mode2"]
+			self.Port 					= int(Parameters["Mode3"])		
+			self.Languague 				= Parameters["Mode4"]
+			self.Url 					= "http://"+Parameters["Address"]+":"+Parameters["Port"]
+			self.SpotifyUsername 		= Parameters["Username"]
+			self.Spotifypassword 		= Parameters["Password"]
+			self.SpotifyExpiryTime 		= time.time()
+			self.GetVariableUrl 		= self.Url+"/json.htm?type=command&param=getuservariable&idx="
+			self.Ip 					= GetIP()
+			self.Error 					= False
+			Octet2 						= self.Ip.split(".")
+			Octet2 						= Octet2[0]+"."+Octet2[1]
+			self.Recheck 				= False
+			self.q 						= Queue()
+			self.q2 					= Queue()
 
-			self.Filelocation=Parameters["Mode2"]
 			if self.Filelocation[-1] != "/":
 				self.Filelocation += "/"
 				Domoticz.Log("Added the final '/' to the directory path as you seem to have forgotten, its ok for now, but you better check your hardware settings.")
-			self.Port = int(Parameters["Mode3"])
-			
-			self.Languague = Parameters["Mode4"]
-
-			self.Url = "http://"+Parameters["Address"]+":"+Parameters["Port"]
-			if self.Url == "":
-				self.Url="http://127.0.0.1:8080"
-
-			self.SpotifyUsername = Parameters["Username"]
-
-			self.Spotifypassword = Parameters["Password"]
-
-			self.GetVariableUrl = self.Url+"/json.htm?type=command&param=getuservariable&idx="
-			self.Ip=GetIP()
-			self.Error=False
-			Octet2=self.Ip.split(".")
-			Octet2=Octet2[0]+"."+Octet2[1]
-			self.Recheck = False
-			self.q = Queue()
-			self.q2 = Queue()
+			if self.Filelocation[-1] != "/":
+				self.Filelocation += "/"
+				Domoticz.Log("Added the final '/' to the directory path as you seem to have forgotten, its ok for now, but you better check your hardware settings.")
 		except Exception as e:
 			senderror(e)
 
@@ -381,7 +376,7 @@ class BasePlugin:
 
 	def onHeartbeat(self):
 		if self.Error == False:
-			GetSpotifyToken()
+			GetSpotifyToken(self)
 
 			RecheckNeeded=False
 			while self.q2.empty()==False:
@@ -439,9 +434,6 @@ class BasePlugin:
 				self.ConnectedChromecasts[ChromecastName]["CC"].disconnect()
 		else:
 			try:
-				#Start Spotify connection
-				GetSpotifyToken()
-
 				cc=self.ConnectedChromecasts[ChromecastName]["CC"]
 				Mc = cc.media_controller
 				if cc != "" and (cc.status != None or Unit % 10 == 4):
@@ -704,9 +696,6 @@ class BasePlugin:
 						PreviousApp = cc.status.display_name
 
 						if cc.status.display_name == "Spotify":
-							#Start Spotify connection
-							GetSpotifyToken()
-
 							#Spotify is playing a playlist
 							if self.SpotifyClient.current_user_playing_track()['context'] != None:
 								ContextType 	= self.SpotifyClient.current_user_playing_track()['context']["type"]
@@ -756,16 +745,16 @@ class BasePlugin:
 					if PreviousApp == "Youtube":
 						Domoticz.Status("Restarting video with id:"+str(MediaId)+" on YouTube.")
 						q = Queue()
-						self.p_YouTube = Process(target=RestartYoutube, args=(q,cc.uri,MediaId,CurrentTime))
-						self.p_YouTube.deamon=True
+						self.p_YouTube 			= Process(target=RestartYoutube, args=(q,cc.uri,MediaId,CurrentTime))
+						self.p_YouTube.deamon 	= True
 						self.p_YouTube.start()
-						while q.empty()==True:
+						while q.empty() 		== True:
 							time.sleep(1)
 						Domoticz.Log(q.get())
 						self.p_YouTube.terminate()
 					elif PreviousApp == "Spotify":
-						self.pSpotify = Process(target=RestartSpotify, args=(self.q2,cc.uri,MediaId,ContextUri,CurrentTime,ContextType))
-						self.pSpotify.deamon=True
+						self.pSpotify 			= Process(target=RestartSpotify, args=(self.q2,cc.uri,MediaId,ContextUri,CurrentTime,ContextType))
+						self.pSpotify.deamon 	= True
 						self.pSpotify.start()
 					else:
 						cc.quit_app()
@@ -773,8 +762,19 @@ class BasePlugin:
 					Domoticz.Error("Cannot play '"+Text+"' on '"+ChromecastName+"' as the chromecast is not connected.")
 		except Exception as e:
 			senderror(e)
-		
 
+	def GetSpotifyToken(self):
+		try:
+			if self.SpotifyUsername != "" and self.Spotifypassword != "" and self.SpotifyExpiryTime - time.time() < 60:
+				data 					= spotify_token.start_session(self.SpotifyUsername, self.Spotifypassword)
+				self.SpotifyAccessToken = data[0]
+				self.SpotifyExpiryTime 	= data[1]
+				self.SpotifyClient 		= spotipy.Spotify(auth=self.SpotifyAccessToken)
+				self.SpotifyUserId 		= self.SpotifyClient.current_user()["id"]
+		except requests.exceptions.ConnectionError:
+			pass
+		except Exception as e:
+			senderror(e)
 
 global _plugin
 _plugin = BasePlugin()
@@ -927,19 +927,6 @@ def GetIP():
 	finally:
 		s.close()
 	return IP
-
-def GetSpotifyToken():
-	try:
-		global _plugin
-		if _plugin.SpotifyUsername != "" and _plugin.Spotifypassword != "":
-			data = spotify_token.start_session(_plugin.SpotifyUsername, _plugin.Spotifypassword)
-			_plugin.SpotifyAccessToken = data[0]
-			_plugin.SpotifyClient = spotipy.Spotify(auth=_plugin.SpotifyAccessToken)
-			_plugin.SpotifyUserId = _plugin.SpotifyClient.current_user()["id"]
-	except requests.exceptions.ConnectionError:
-		pass
-	except Exception as e:
-		senderror(e)
 		
 def RestartYoutube(q,uri,videoid,seektime = None):
 	try:

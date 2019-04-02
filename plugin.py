@@ -376,7 +376,7 @@ class BasePlugin:
 
 	def onHeartbeat(self):
 		if self.Error == False:
-			GetSpotifyToken(self)
+			self.GetSpotifyToken()
 
 			RecheckNeeded=False
 			while self.q2.empty()==False:

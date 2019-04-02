@@ -902,9 +902,9 @@ def SetDeviceTimeOut(Unit, Value):
 			Devices[x].Update(nValue=Devices[Unit+1].nValue, sValue=str(Devices[Unit+1].sValue), TimedOut=Value)
 
 		if Value == 0:
-			Domoticz.Log("Setting devices "+ Names[:-2] +" as timed out, as the chromecast is not connected.")
-		else:
 			Domoticz.Log("Setting devices "+ Names[:-2] +" as not timed out, as the chromecast is connected.")
+		else:
+			Domoticz.Log("Setting devices "+ Names[:-2] +" as timed out, as the chromecast is not connected.")
 	except Exception as e:
 		senderror(e)
 

@@ -1018,7 +1018,7 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 			q.put("Restarted playback of track " + TrackInfo['items'][0]['track']['name'] )
 
 		if _plugin.Debug == True:
-			Domoticz.Log("Spotify arguments are: uris "+str(TrackId) + " context uri " + context_uri + " offset " + Offset)
+			Domoticz.Log("Spotify arguments are: uris "+str(TrackId) + " context uri " + ContextUri + " offset " + Offset)
 		try:
 			_plugin.SpotifyClient.start_playback(device_id=device_id, uris=TrackId, context_uri=ContextUri, offset=Offset)
 		except:

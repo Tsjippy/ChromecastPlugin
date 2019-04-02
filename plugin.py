@@ -370,7 +370,8 @@ class BasePlugin:
 					getVariables()
 
 					#Start FileServer
-					Domoticz.Log("Local ip address is "+self.Ip)
+					if self.Debug == True:
+						Domoticz.Log("Local ip address is "+self.Ip)
 					self.fileserver()
 
 				self.ConnectChromeCast()
@@ -1007,7 +1008,7 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 		elif ContextUri != None:
 			if _plugin.Debug == True:
 				q.put("Spotify user id is " + str(_plugin.SpotifyUserId) + " contexturi is " + ContextUri)
-			if Contexttype == 'artist':
+			if ContextType == 'artist':
 				ArtistName = _plugin.SpotifyClient.artist(ContextUri)["name"]
 				q.put("Restarted playback of " + ContextType + " with the name '"+ ArtistName + "'")
 			else:

@@ -966,14 +966,13 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 		elif TrackId != None and ContextUri == None:
 			TrackId = [TrackId]
 
-
 		ip=uri.split(":")[0]
 		port=int(uri.split(":")[1])
 		cc = pychromecast.Chromecast(ip,port)
 		cc.start()
 		cc.wait()
 
-		sp = SpotifyController(_plugin.SpotifyAccessToken)
+		sp = SpotifyController(_plugin.SpotifyAccessToken, _plugin.SpotifyExpiryTime)
 		cc.register_handler(sp)
 
 		device_id = None
@@ -1005,7 +1004,7 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 			q.put("Restarted playback of track " + TrackInfo['items'][0]['track']['name'] )
 
 		if _plugin.Debug == True:
-			Domoticz.Log("Spotify arguments are: uris "+str(TrackId) + " context uri " + ContextUri + " offset " + Offset)
+			Domoticz.Log("Spotify arguments are: uris "+str(TrackId) + " context uri " + str(ContextUri) + " offset " + str(Offset))
 		try:
 			_plugin.SpotifyClient.start_playback(device_id=device_id, uris=TrackId, context_uri=ContextUri, offset=Offset)
 		except:

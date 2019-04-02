@@ -48,7 +48,7 @@ Known bugs
 
 Releases
 ----------
-29-03-2019: 4.2.0 Retrieve last played music from Spotify, bug fixes
+29-03-2019: 4.2.0 Retrieve last played music from Spotify, bug fixes<br>
 27-03-2019: 4.1.0 Cleaner code and better Spotify listeners <br>
 25-03-2019: 4.0.0 Added Spotify support, added previous and next buttons <br>
 03-12-2018: 3.0.0 Massive rework and better listeners <br>

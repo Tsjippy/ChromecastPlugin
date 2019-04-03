@@ -292,7 +292,7 @@ class BasePlugin:
 
 	def onStart(self):
 		try:
-			self.Debug 					= False
+			self.Debug 					= True
 			self.ChromecastNames 		= Parameters["Mode1"].split(",")
 			self.Filelocation 			= Parameters["Mode2"]
 			self.Port 					= int(Parameters["Mode3"])		
@@ -322,18 +322,28 @@ class BasePlugin:
 		try:
 			if Settings["WebUserName"] != "" and Settings["WebUserName"] != str(0) and "127.0" not in Settings["WebLocalNetworks"] and Octet2 not in Settings["WebLocalNetworks"]:
 				Domoticz.Error("You have set a password, but have not excluded your local ip. Please do so, then restart domoticz.")
-				self.Error=True
+				self.Error = True
 			elif CheckInternet() == False:
 				Domoticz.Error("You do not have a working internet connection.")
-				self.Error=True
+				self.Error = True
 		except:
 			pass
 
 		#Check dependicies
 		try:
-			installed_packages = pip.get_installed_distributions()
-			installed_packages_list = sorted(["%s==%s" % (i.key, i.version)for i in installed_packages]) 
-			print(installed_packages_list)
+			Domoticz.Log("Checking dependicies.")
+			InstalledPackages = pip.get_installed_distributions()
+			for package in InstalledPackages:
+				if package.key == "pychromecast" and package.version != "3.2.0":
+					Domoticz.Error(package.key + " is not up to date, please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
+					self.Error = True
+				elif self.SpotifyUsername != "" and self.Spotifypassword != "":
+					if package.key == "spotipy" and package.version != "2.4.4":
+						Domoticz.Error(package.key + " is not up to date, please upgrade by using this command: 'sudo pip3 install git+https://github.com/plamere/spotipy.git --upgrade' and restart this plugin.")
+						self.Error = True					
+					elif package.key == "spotify-token" and package.version != "0.1.0":
+						Domoticz.Error(package.key + " is not up to date, please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
+						self.Error = True
 		except Exception as e:
 			senderror(e)
 		
@@ -363,7 +373,7 @@ class BasePlugin:
 				
 				if Settings["AcceptNewHardware"] != "1" and len(Devices) != len(self.ConnectedChromecasts)*4:
 					Domoticz.Error("'Accept new Hardware Devices' is not enabled, please enable it to allow the creation of new devices. Then restart Domoticz.")
-					self.Error=True
+					self.Error = True
 				else:
 					# Check if devices need to be deleted
 					self.updateDevices()
@@ -619,7 +629,7 @@ class BasePlugin:
 			VariablesIDX=result.get('result')
 		except:
 			Domoticz.Error("Could not get all variables. Used this url: "+self.Url+"/json.htm?type=command&param=getuservariables")
-			self.Error=True
+			self.Error = True
 
 		try:
 			#Find the device id's

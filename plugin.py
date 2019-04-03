@@ -75,6 +75,7 @@ from pychromecast.controllers.youtube import YouTubeController
 from multiprocessing import Process, Queue
 from pychromecast.controllers.spotify import SpotifyController
 import threading
+import pip
 try:
 	import spotify_token
 	import spotipy
@@ -291,7 +292,7 @@ class BasePlugin:
 
 	def onStart(self):
 		try:
-			self.Debug 					= True
+			self.Debug 					= False
 			self.ChromecastNames 		= Parameters["Mode1"].split(",")
 			self.Filelocation 			= Parameters["Mode2"]
 			self.Port 					= int(Parameters["Mode3"])		
@@ -327,6 +328,14 @@ class BasePlugin:
 				self.Error=True
 		except:
 			pass
+
+		#Check dependicies
+		try:
+			installed_packages = pip.get_installed_distributions()
+			installed_packages_list = sorted(["%s==%s" % (i.key, i.version)for i in installed_packages]) 
+			print(installed_packages_list)
+		except Exception as e:
+			senderror(e)
 		
 		try:
 			if self.Error==False:
@@ -951,60 +960,64 @@ def RestartYoutube(q,uri,videoid,seektime = None):
 def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType = None,Offset = None):
 	global _plugin
 	try:
+
+		#Get the latest played music from Spotify if not given as parameters
 		TrackInfo = _plugin.SpotifyClient.current_user_recently_played(limit=1)
 		if TrackId == None and ContextUri == None:
 			if TrackInfo['items'][0]['context'] != None:
-				ContextUri = TrackInfo['items'][0]['context']['uri']
-				ContextType = TrackInfo['items'][0]['context']['type']
-				if ContextType != "artist":
-					Offset = {"uri": TrackInfo['items'][0]['track']['uri']}
+				ContextUri 		= TrackInfo['items'][0]['context']['uri']
+				ContextType 	= TrackInfo['items'][0]['context']['type']
+				Offset 			= {"uri": TrackInfo['items'][0]['track']['uri']}
 			else:
-				TrackId = [TrackInfo['items'][0]['track']['uri']]
-		elif ContextUri != None and ContextType != "artist":
-				Offset = {"uri": TrackId}
-				TrackId = None
+				TrackId 		= [TrackInfo['items'][0]['track']['uri']]
+		elif ContextUri != None:
+				Offset 			= {"uri": TrackId}
+				TrackId 		= None
 		elif TrackId != None and ContextUri == None:
-			TrackId = [TrackId]
+			TrackId 			= [TrackId]
 
-		ip=uri.split(":")[0]
-		port=int(uri.split(":")[1])
-		cc = pychromecast.Chromecast(ip,port)
+		#Connect to chromecast
+		ip 		= uri.split(":")[0]
+		port 	= int(uri.split(":")[1])
+		cc 		= pychromecast.Chromecast(ip,port)
 		cc.start()
 		cc.wait()
-
-		sp = SpotifyController(_plugin.SpotifyAccessToken, _plugin.SpotifyExpiryTime)
+		sp 		= SpotifyController(_plugin.SpotifyAccessToken, _plugin.SpotifyExpiryTime)
 		cc.register_handler(sp)
 
+		#Launch spotify app on chromecast and find device id
 		device_id = None
 		sp.launch_app()
 		q.put("Spotify started.")
-
 		devices_available = _plugin.SpotifyClient.devices()
-
 		for device in devices_available['devices']:
 		    if device['name'] == cc.name:
 		        device_id = device['id']
 		        break
 
-		if ContextUri != None and Offset != None:
+
+		if ContextUri != None:
 			if _plugin.Debug == True:
-				q.put("Spotify user id is " + str(_plugin.SpotifyUserId) + " contexturi is " + ContextUri)
-			PlaylistName = _plugin.SpotifyClient.user_playlist(_plugin.SpotifyUserId,ContextUri,"name")["name"]
-			q.put("Restarted playback of "+ContextType+" with the name '"+ PlaylistName + "' and track '" + TrackInfo['items'][0]['track']['name'] + "'" )
-		elif ContextUri != None:
-			if _plugin.Debug == True:
-				q.put("Spotify user id is " + str(_plugin.SpotifyUserId) + " contexturi is " + ContextUri)
+				q.put("Spotify user id is " + str(_plugin.SpotifyUserId) + " contexturi is " + str(ContextUri) + " Offset is " + str(Offset))
+			
 			if ContextType == 'artist':
-				ArtistName = _plugin.SpotifyClient.artist(ContextUri)["name"]
-				q.put("Restarted playback of " + ContextType + " with the name '"+ ArtistName + "'")
+				Name = _plugin.SpotifyClient.artist(ContextUri)["name"]
+				Offset = None
+			elif ContextType == "album":
+				Name = _plugin.SpotifyClient.album("spotify:album:3KHPqtzQKRPKup29xEQWtg")["name"]
 			else:
-				PlaylistName = _plugin.SpotifyClient.user_playlist(_plugin.SpotifyUserId,ContextUri,"name")["name"]
-				q.put("Restarted playback of "+ContextType+" with the name '"+ PlaylistName + "'" )
+				Name = _plugin.SpotifyClient.user_playlist(_plugin.SpotifyUserId,ContextUri,"name")["name"]
+		
+		if Offset != None:
+			q.put("Restarted playback of " + str(ContextType) + " with the name '" + str(Name) + "' and track '" + TrackInfo['items'][0]['track']['name'] + "'" )
+		elif ContextUri != None:
+			q.put("Restarted playback of " + str(ContextType) + " with the name '"+ str(Name) + "'")
 		else:
 			q.put("Restarted playback of track " + TrackInfo['items'][0]['track']['name'] )
 
+
 		if _plugin.Debug == True:
-			Domoticz.Log("Spotify arguments are: uris "+str(TrackId) + " context uri " + str(ContextUri) + " offset " + str(Offset))
+			q.put("Spotify arguments are: uris "+str(TrackId) + " context uri " + str(ContextUri) + " offset " + str(Offset))
 		try:
 			_plugin.SpotifyClient.start_playback(device_id=device_id, uris=TrackId, context_uri=ContextUri, offset=Offset)
 		except:

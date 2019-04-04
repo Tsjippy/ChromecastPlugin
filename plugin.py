@@ -999,7 +999,8 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 		#Launch spotify app on chromecast and find device id
 		device_id = None
 		sp.launch_app()
-		q.put("Spotify started.")
+		if _plugin.Debug == True:
+			q.put("Spotify started.")
 		devices_available = _plugin.SpotifyClient.devices()
 		for device in devices_available['devices']:
 		    if device['name'] == cc.name:
@@ -1024,7 +1025,7 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 		elif ContextUri != None:
 			q.put("Restarted playback of " + str(ContextType) + " with the name '"+ str(Name) + "'")
 		else:
-			q.put("Restarted playback of track " + TrackInfo['items'][0]['track']['name'] )
+			q.put('Restarted playback of track "' + TrackInfo['items'][0]['track']['name'] +'"' )
 
 
 		if _plugin.Debug == True:
@@ -1042,7 +1043,8 @@ def RestartSpotify(q,uri,TrackId = None,ContextUri = None,seektime=0,ContextType
 			q.put("Searched in track to previous position")
 
 		cc.disconnect()
-		q.put("Restarting Spotify is done")
+		if _plugin.Debug == True:
+			q.put("Restarting Spotify is done")
 	except Exception as e:
 		if "Could not connect to" in str(e):
 			q.put("Could not start Spotify as the chrmecast is not connected.")

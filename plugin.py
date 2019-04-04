@@ -292,7 +292,7 @@ class BasePlugin:
 
 	def onStart(self):
 		try:
-			self.Debug 					= True
+			self.Debug 					= False
 			self.ChromecastNames 		= Parameters["Mode1"].split(",")
 			self.Filelocation 			= Parameters["Mode2"]
 			self.Port 					= int(Parameters["Mode3"])		

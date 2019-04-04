@@ -262,6 +262,7 @@ class StatusMediaListener:
 							ContextType = TrackInfo['context']["type"]
 						else:
 							Context_uri = None
+							ContextType = None
 						MediaId = TrackInfo["item"]["uri"]
 
 						_plugin.ConnectedChromecasts[self.Name]["Spotify"]["Track"] = MediaId

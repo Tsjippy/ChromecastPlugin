@@ -302,6 +302,7 @@ class BasePlugin:
 			self.SpotifyUsername 		= Parameters["Username"]
 			self.Spotifypassword 		= Parameters["Password"]
 			self.SpotifyExpiryTime 		= time.time()
+			self.GetSpotifyToken()
 			self.GetVariableUrl 		= self.Url+"/json.htm?type=command&param=getuservariable&idx="
 			self.Ip 					= GetIP()
 			self.Error 					= False

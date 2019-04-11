@@ -340,6 +340,8 @@ class BasePlugin:
 				Domoticz.Log("Checking dependicies.")
 			InstalledPackages = pip.get_installed_distributions()
 			for package in InstalledPackages:
+				if self.Debug == True:
+					Domoticz.Log("Processing " + package.key + " with version " + str(package.version))
 				if package.key == "pychromecast" and package.version != "3.2.0":
 					Domoticz.Error(package.key + " is not up to date, please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
 					self.Error = True

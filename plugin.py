@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.2.5" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.2.6" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -193,7 +193,10 @@ class ConnectionListener:
 				if self.Counter == 0:
 					Domoticz.Log("Failed to connect to '"+self.Name+"'")
 				elif self.Counter == 10:
-					self.Cast.disconnect()
+					try:
+						self.Cast.disconnect()
+					except:
+						pass
 					Domoticz.Status("Disconnecting '"+self.Name+"' as reconnecting did not succeed for 10 times.")
 					self.Counter = -1
 				self.Counter += 1
@@ -333,7 +336,8 @@ class BasePlugin:
 
 		#Check dependicies
 		try:
-			Domoticz.Log("Checking dependicies.")
+			if self.Debug == True:
+				Domoticz.Log("Checking dependicies.")
 			InstalledPackages = pip.get_installed_distributions()
 			for package in InstalledPackages:
 				if package.key == "pychromecast" and package.version != "3.2.0":
@@ -350,7 +354,7 @@ class BasePlugin:
 			senderror(e)
 		
 		try:
-			if self.Error==False:
+			if self.Error == False:
 				#Create temppath if it does not exist
 				if not os.path.isdir(self.Filelocation):
 					Domoticz.Status("Created folder "+self.Filelocation)
@@ -396,10 +400,17 @@ class BasePlugin:
 			senderror(e)
 
 	def onHeartbeat(self):
+		if CheckInternet() == False:
+			self.Error = "You do not have a working internet connection."
+			Domoticz.Error(self.Error)
+		elif CheckInternet() == True and self.Error == "You do not have a working internet connection.":
+			self.Error = False
+
 		if self.Error == False:
+			RecheckNeeded=False
+
 			self.GetSpotifyToken()
 
-			RecheckNeeded=False
 			while self.q2.empty()==False:
 				Result=self.q2.get()
 				if "Error" in str(Result):

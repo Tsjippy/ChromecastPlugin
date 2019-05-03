@@ -237,7 +237,7 @@ class StatusMediaListener:
 	def new_media_status(self, status):
 		try:
 			global _plugin
-			if _plugin.Internet == False:
+			if _plugin.Internet == True:
 				if self.Mode != status.player_state and status.player_state != "IDLE" and status.player_state != "BUFFERING":
 					self.Mode = status.player_state
 					TrackInfo = _plugin.SpotifyClient.current_user_playing_track()

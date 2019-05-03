@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.3.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.4.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -97,8 +97,6 @@ class StatusListener:
 			self.AppLevels["Backdrop"] 	= 0
 			self.AppLevels["None"] 		= 0
 			self.CastType 				= self.Cast.cast_type
-			if self.Cast.model_name == 'Google Home Mini':
-				self.CastType = 'audio'
 
 			if cast.status == None or cast.status.display_name == None :
 				self.Appname 			= "None"
@@ -194,6 +192,7 @@ class ConnectionListener:
 					Domoticz.Log("Failed to connect to '"+self.Name+"'")
 				elif self.Counter == 10:
 					try:
+						_plugin.ConnectedChromecasts[ChromecastName]["CC"] = ""
 						self.Cast.disconnect()
 					except:
 						pass
@@ -329,15 +328,15 @@ class BasePlugin:
 			for package in InstalledPackages:
 				if self.Debug == True:
 					Domoticz.Log("Processing " + package.key + " with version " + str(package.version))
-				if package.key == "pychromecast" and package.version != "3.2.0":
-					Domoticz.Error(package.key + " is not up to date, please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
+				if package.key == "pychromecast" and package.version != "3.2.1":
+					Domoticz.Error(package.key + " is not up to date, it is currently version " + package.version + " it should be at least version 3.2.1. Please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
 					self.Error = True
 				elif self.SpotifyUsername != "" and self.Spotifypassword != "":
 					if package.key == "spotipy" and package.version != "2.4.4":
-						Domoticz.Error(package.key + " is not up to date, please upgrade by using this command: 'sudo pip3 install git+https://github.com/plamere/spotipy.git --upgrade' and restart this plugin.")
+						Domoticz.Error(package.key + " is not up to date, it is currently version " + package.version + " it should be at least version 2.4.4. Please upgrade by using this command: 'sudo pip3 install git+https://github.com/plamere/spotipy.git --upgrade' and restart this plugin.")
 						self.Error = True					
 					elif package.key == "spotify-token" and package.version != "0.1.0":
-						Domoticz.Error(package.key + " is not up to date, please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
+						Domoticz.Error(package.key + " is not up to date, it is currently version " + package.version + " it should be at least version 0.1.0. Please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
 						self.Error = True
 		except Exception as e:
 			senderror(e)
@@ -415,6 +414,7 @@ class BasePlugin:
 					cc=self.ConnectedChromecasts[ChromecastName]["CC"]
 					#Check if chromecast is already connected
 					if cc == "":
+						Domoticz.Status("Will scan for available chromecasts")
 						RecheckNeeded=True
 					else:
 						if cc.status != None and cc.status.display_name == "Spotify":
@@ -429,13 +429,13 @@ class BasePlugin:
 
 					self.PlayMessage(ChromecastName)
 
-				if RecheckNeeded==True:
+				if RecheckNeeded == True:
 					#Check if a chromecast is available in a seperate process.
 					#If available connect to it in this process.
 					self.pRecheck = Process(target=ScanForChromecasts, args=(self.q,self.ConnectedChromecasts,))
 					self.pRecheck.start()
-					if self.q.empty()==False:
-						self.Recheck=self.q.get()
+					if self.q.empty() == False:
+						self.Recheck = self.q.get()
 					self.pRecheck.terminate()
 
 					if self.Recheck == True:
@@ -634,7 +634,7 @@ class BasePlugin:
 
 	def updateDevices(self):
 		try:
-			result=requests.get(self.Url+"/json.htm?type=command&param=getuservariables").json()
+			result = requests.get(self.Url+"/json.htm?type=command&param=getuservariables").json()
 			result['status']
 			VariablesIDX=result.get('result')
 		except:
@@ -672,7 +672,7 @@ class BasePlugin:
 							if result=="OK":
 								Domoticz.Log("Removed uservariable for '"+ChromecastName+"'")
 							else:
-								Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.Url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName][2])
+								Domoticz.Error("Could not remove user variable '"+ChromecastName+"', result was '"+result+"'. URL used is "+_plugin.Url+"/json.htm?type=command&param=deleteuservariable&idx="+Chromecasts[ChromecastName]["IDX"])
 					except StopIteration:
 						pass
 					except Exception as e:
@@ -939,7 +939,7 @@ def SetDeviceTimeOut(Unit, Value):
 
 def CheckInternet():
 	try:
-		requests.get(url='http://www.google.com/', timeout=5)
+		requests.get(url='http://www.google.com/', timeout=3)
 		return True
 	except requests.ConnectionError:
 		return False
@@ -1070,7 +1070,7 @@ def ScanForChromecasts(q,ConnectedChromecasts):
 	if len(chromecasts) != 0:
 		for ChromecastName in ConnectedChromecasts:
 			#Check if chrmecast is already connected
-			if ConnectedChromecasts[ChromecastName][1] == "":
+			if ConnectedChromecasts[ChromecastName]["CC"] == "":
 				#Try to find the chromecast in the available chromecasts
 				try:
 					cc=next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)

@@ -939,7 +939,7 @@ def SetDeviceTimeOut(Unit, Value):
 
 def CheckInternet():
 	try:
-		requests.get(url='http://www.google.com/', timeout=3)
+		requests.get(url='http://www.google.com/', timeout=10)
 		return True
 	except requests.ConnectionError:
 		return False

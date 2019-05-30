@@ -395,6 +395,7 @@ class BasePlugin:
 				Domoticz.Error(self.Error)
 			elif CheckInternet() == True and self.Internet == False:
 				self.Internet = True
+				Domoticz.Error("Your internet connection is back.")
 				self.Error = False
 
 			if self.Error == False:

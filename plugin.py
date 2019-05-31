@@ -63,6 +63,7 @@ import os
 if (os.name == 'nt'):
     Domoticz.Error("Windows is currently not supported.")
 
+from packaging import version
 import requests
 import socket
 import http.server
@@ -328,7 +329,7 @@ class BasePlugin:
 			for package in InstalledPackages:
 				if self.Debug == True:
 					Domoticz.Log("Processing " + package.key + " with version " + str(package.version))
-				if package.key == "pychromecast" and package.version != "3.2.1":
+				if package.key == "pychromecast" and version.parse(package.version) < version.parse("3.2.1"):
 					Domoticz.Error(package.key + " is not up to date, it is currently version " + package.version + " it should be at least version 3.2.1. Please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
 					self.Error = True
 				elif self.SpotifyUsername != "" and self.Spotifypassword != "":

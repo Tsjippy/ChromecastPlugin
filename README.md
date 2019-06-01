@@ -15,6 +15,7 @@ Installation and setup
 1) Install dependecies: 
 ```bash
 sudo pip3 install pychromecast
+sudo pip3 install packaging
 ```
 
 If you have Spotify:

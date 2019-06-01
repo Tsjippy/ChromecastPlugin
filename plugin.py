@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.4.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.4.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -333,10 +333,10 @@ class BasePlugin:
 					Domoticz.Error(package.key + " is not up to date, it is currently version " + package.version + " it should be at least version 3.2.1. Please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
 					self.Error = True
 				elif self.SpotifyUsername != "" and self.Spotifypassword != "":
-					if package.key == "spotipy" and package.version != "2.4.4":
+					if package.key == "spotipy" and version.parse(package.version) < version.parse("2.4.4"):
 						Domoticz.Error(package.key + " is not up to date, it is currently version " + package.version + " it should be at least version 2.4.4. Please upgrade by using this command: 'sudo pip3 install git+https://github.com/plamere/spotipy.git --upgrade' and restart this plugin.")
 						self.Error = True					
-					elif package.key == "spotify-token" and package.version != "0.1.0":
+					elif package.key == "spotify-token" and version.parse(package.version) < version.parse("0.1.0"):
 						Domoticz.Error(package.key + " is not up to date, it is currently version " + package.version + " it should be at least version 0.1.0. Please upgrade by using this command: 'sudo pip3 install " + package.key + " --upgrade' and restart this plugin.")
 						self.Error = True
 		except Exception as e:

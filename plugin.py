@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.4.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.5.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -317,7 +317,7 @@ class BasePlugin:
 			elif CheckInternet() == False:
 				Domoticz.Error("You do not have a working internet connection.")
 				self.Internet = False
-				self.Error = True
+				#self.Error = True
 		except:
 			pass
 
@@ -416,7 +416,7 @@ class BasePlugin:
 					cc=self.ConnectedChromecasts[ChromecastName]["CC"]
 					#Check if chromecast is already connected
 					if cc == "":
-						Domoticz.Status("Will scan for available chromecasts")
+						Domoticz.Status("Will scan for available chromecasts, as " + ChromecastName + " is currently not connected.")
 						RecheckNeeded=True
 					else:
 						if cc.status != None and cc.status.display_name == "Spotify":
@@ -443,6 +443,8 @@ class BasePlugin:
 					if self.Recheck == True:
 						Domoticz.Log("Connecting to available chromecasts")
 						self.ConnectChromeCast()
+					else:
+						Domoticz.Log(str(self.Recheck))
 		except Exception as e:
 			senderror(e)
 
@@ -812,6 +814,9 @@ _plugin = BasePlugin()
 
 def onStart():
 	global _plugin
+	while CheckInternet() == False:
+        print("You do not have a working internet connection.")
+        time.sleep(100)
 	_plugin.onStart()
 
 def onHeartbeat():
@@ -941,7 +946,7 @@ def SetDeviceTimeOut(Unit, Value):
 
 def CheckInternet():
 	try:
-		requests.get(url='http://www.google.com/', timeout=10)
+		requests.get(url='http://www.google.com/', timeout=30)
 		return True
 	except requests.ConnectionError:
 		return False
@@ -1068,7 +1073,8 @@ def ScanForChromecasts(q,ConnectedChromecasts):
 	except Exception as e:
 		pass
 
-	#Check if there any non-connected chromecast available
+	q.put("Found these chromecasts: " + str(chromecasts))
+	#Check if there are any non-connected chromecast available
 	if len(chromecasts) != 0:
 		for ChromecastName in ConnectedChromecasts:
 			#Check if chrmecast is already connected
@@ -1076,6 +1082,7 @@ def ScanForChromecasts(q,ConnectedChromecasts):
 				#Try to find the chromecast in the available chromecasts
 				try:
 					cc=next(cc for cc in chromecasts if cc.device.friendly_name == ChromecastName)
+					q.put("Found " + str(cc))
 					Recheck=True
 				except Exception as e:
 					pass

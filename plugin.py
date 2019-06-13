@@ -813,11 +813,11 @@ global _plugin
 _plugin = BasePlugin()
 
 def onStart():
-	global _plugin
-	while CheckInternet() == False:
+    global _plugin
+    while CheckInternet() == False:
         print("You do not have a working internet connection.")
         time.sleep(100)
-	_plugin.onStart()
+    _plugin.onStart()
 
 def onHeartbeat():
 	global _plugin

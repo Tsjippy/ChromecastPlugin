@@ -2,7 +2,7 @@
 # Author: Tsjippy
 #
 """
-<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.5.0" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
+<plugin key="Chromecast" name="Chromecast status and control plugin" author="Tsjippy" version="4.5.1" wikilink="http://www.domoticz.com/wiki/plugins/plugin.html" externallink="https://github.com/Tsjippy/ChromecastPlugin/">
     <description>
         <h2>Chromecast</h2><br/>
         This plugin adds devices and an user variable to Domoticz to control your chromecasts, and to retrieve its current app, title, volume and playing mode.<br/>
@@ -77,6 +77,10 @@ from multiprocessing import Process, Queue
 from pychromecast.controllers.spotify import SpotifyController
 import threading
 import pip
+if pip.__version__ >= "10.0.0":
+    from pip._internal.utils.misc import get_installed_distributions
+else:
+    from pip import get_installed_distributions
 try:
 	import spotify_token
 	import spotipy
@@ -325,7 +329,7 @@ class BasePlugin:
 		try:
 			if self.Debug == True:
 				Domoticz.Log("Checking dependicies.")
-			InstalledPackages = pip.get_installed_distributions()
+			InstalledPackages = get_installed_distributions()
 			for package in InstalledPackages:
 				if self.Debug == True:
 					Domoticz.Log("Processing " + package.key + " with version " + str(package.version))

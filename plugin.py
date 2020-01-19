@@ -77,7 +77,7 @@ from multiprocessing import Process, Queue
 from pychromecast.controllers.spotify import SpotifyController
 import threading
 import pip
-if pip.__version__ >= "10.0.0":
+if int(pip.__version__.split(".")[0])>10:
     from pip._internal.utils.misc import get_installed_distributions
 else:
     from pip import get_installed_distributions
